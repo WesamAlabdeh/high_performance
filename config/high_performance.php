@@ -40,6 +40,7 @@ return [
 
     'cache' => [
         'product_ttl' => (int) env('PRODUCT_CACHE_TTL', 300),
+        'product_store' => env('PRODUCT_CACHE_STORE', 'database'),
     ],
 
     'stress_test' => [
