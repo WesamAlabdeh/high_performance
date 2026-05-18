@@ -1,58 +1,212 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# مشروع مادة البرمجة المتوازية
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Backend تجارة إلكترونية (Laravel) — التركيز على التزامن تحت ضغط عدد كبير من المستخدمين.
 
-## About Laravel
-
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
-
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
-
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+**تشغيل المشروع:**
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate --seed
+composer octane
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+طابور المهام (نافذة ثانية):
 
-## Contributing
+```bash
+php artisan queue:work --queue=invoices,notifications,batches,default
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+**حساب تجريبي:** `demo@highperformance.test` / `password`  
+**Postman:** مجلد `postman/`
 
-## Code of Conduct
+---
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## التسليم: صور + PDF
 
-## Security Vulnerabilities
+كل شيء التسليم يحطه هون:
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```
+submission/
+  images/     ← صور PNG (الخطوات تحت)
+  pdf/        ← architecture.pdf
+  sources/    ← architecture-for-print.html (لطباعة PDF)
+```
 
-## License
+---
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## الخطوة 0 — جهّز المشروع
+
+```bash
+php artisan migrate --seed
+composer octane
+```
+
+نافذة ثانية: `php artisan queue:work --queue=invoices,notifications,batches,default`
+
+تأكد المخزون فيه كمية:
+
+```bash
+php artisan tinker --execute="App\Models\Product::where('id',1)->update(['stock'=>50]);"
+```
+
+---
+
+## الصورة 1 — Race بدون قفل
+
+```bash
+php artisan concurrency:race-demo 1 --attempts=30
+```
+
+خذ screenshot للتيرمنال — لازم يبان سطر مثل:
+
+`UNSAFE final stock: 7` (رقم مو 0)
+
+احفظ: `submission/images/01-race-bila-qfl.png`
+
+---
+
+## الصورة 2 — Race مع lockForUpdate
+
+نفس الأمر — خذ screenshot لسطر:
+
+`SAFE final stock: 0`
+
+احفظ: `submission/images/02-race-ma3-qfl.png`
+
+---
+
+## الصورة 3 — Postman (تسجيل دخول + رصيد)
+
+1. استورد `postman/HighPerformance-User-APIs.postman_collection.json`
+2. شغّل **Login (Demo User)**
+3. screenshot للرد (فيها token)
+4. احفظ: `submission/images/03-postman-login.png`
+5. شغّل **GET wallet** — screenshot للرصيد
+6. احفظ: `submission/images/04-postman-wallet.png`
+
+---
+
+## الصورة 4 — Postman (طلب كامل)
+
+بالترتيب:
+
+1. **Get Products**
+2. **Update Cart** — `product_id: 1`, `quantity: 2`
+3. **Create Order**
+
+Screenshot لرد الطلب — لازم يبان `payment_status: paid`
+
+احفظ: `submission/images/05-postman-order-paid.png`
+
+Screenshot لنافذة الـ queue إذا طلع `GenerateOrderInvoiceJob DONE`:
+
+`submission/images/06-queue-jobs.png`
+
+---
+
+## الصورة 5 — Stress test (100 مستخدم)
+
+### طريقة JMeter (اللي ذكرها الأستاذ)
+
+1. نزّل JMeter: https://jmeter.apache.org/download_jmeter.cgi
+2. Thread Group: 100 users, ramp-up 10s
+3. طلبات: Login → GET product (مع Bearer token)
+4. شغّل الاختبار والـ Octane شغال
+5. screenshot لـ **Aggregate Report**
+
+احفظ: `submission/images/07-jmeter-100-users.png`
+
+تفاصيل أكثر: `tests/jmeter/README.md`
+
+### بديل سريع (بدون JMeter)
+
+```bash
+php artisan benchmark:stress --users=100
+```
+
+(Octane لازم يكون شغال.) إذا طلع فيه أخطاء كثيرة، اعتمد JMeter للتسليم.
+
+---
+
+## الصورة 6 — Grafana (موارد النظام)
+
+```bash
+composer monitoring
+```
+
+افتح http://localhost:3000 (admin / admin)
+
+شغّل ضغط (JMeter أو `php artisan benchmark:stress --users=100`) وخذ screenshot للوحة.
+
+احفظ: `submission/images/08-grafana-cpu-ram.png`
+
+**بدون Docker:** Activity Monitor على الماك أثناء الضغط — screenshot يكفي إذا ما اشتغل Grafana.
+
+---
+
+## PDF المعمارية
+
+1. افتح بالمتصفح: `submission/sources/architecture-for-print.html`
+2. Cmd+P (طباعة)
+3. Destination: **Save as PDF**
+4. احفظ: `submission/pdf/architecture.pdf`
+
+---
+
+## PDF تقرير كامل (اختياري)
+
+إذا بدك ملف واحد للتسليم:
+
+1. افتح Word / Google Docs / Pages
+2. رتّب بالترتيب:
+   - صفحة عنوان + اسمك
+   - architecture (أو ادمج architecture.pdf)
+   - صورة 01 و 02 (race)
+   - صور postman
+   - jmeter
+   - grafana
+   - فقرة قصيرة: شو تعلمت
+3. Export PDF → `submission/pdf/takrir-kamil.pdf`
+
+---
+
+## قائمة تحقق قبل ما تسلّم
+
+```
+submission/images/01-race-bila-qfl.png
+submission/images/02-race-ma3-qfl.png
+submission/images/03-postman-login.png
+submission/images/04-postman-wallet.png
+submission/images/05-postman-order-paid.png
+submission/images/06-queue-jobs.png        (إن وجد)
+submission/images/07-jmeter-100-users.png
+submission/images/08-grafana-cpu-ram.png
+submission/pdf/architecture.pdf
+```
+
+---
+
+## أوامر مفيدة
+
+| الأمر | شو بيعمل |
+|--------|----------|
+| `composer octane` | تشغيل السيرفر |
+| `php artisan concurrency:race-demo` | تجربة race |
+| `php artisan benchmark:stress --users=100` | ضغط HTTP |
+| `composer monitoring` | Prometheus + Grafana |
+
+---
+
+## هيكل المشروع (للمراجعة)
+
+```
+app/Services/Concurrency/InventoryService.php   ← قفل مخزون
+app/Services/Payment/SimulatedPaymentService.php ← دفع + رصيد
+app/Jobs/                                       ← طوابير
+app/Aspects/ConcurrencyAspect.php               ← مراقبة (AOP)
+routes/api.php
+postman/
+submission/        
+```

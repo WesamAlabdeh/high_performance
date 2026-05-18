@@ -63,12 +63,6 @@
         "benchmark:bottlenecks": [
             "@php artisan benchmark:bottlenecks"
         ],
-        "reports": [
-            "@php artisan project:reports --skip-stress"
-        ],
-        "reports:full": [
-            "@php artisan project:reports --users=100"
-        ],
         "octane:prod": [
             "Composer\\Config::disableProcessTimeout",
             "php artisan octane:start --server=swoole --host=0.0.0.0 --port=8000 --workers=auto --task-workers=auto --max-requests=500"
