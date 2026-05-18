@@ -1,0 +1,8 @@
+{
+  "status": "success",
+  "message": "Success",
+  "data": {
+    "balance": "10000.00",
+    "version": 1
+  }
+}

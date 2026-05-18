@@ -1,0 +1,13 @@
+{
+  "status": "success",
+  "message": "Success",
+  "data": {
+    "user": {
+      "id": 1,
+      "name": "Demo User",
+      "email": "demo@highperformance.test",
+      "balance": "10000.00"
+    },
+    "token": "18|… (Sanctum token — يظهر في Postman)"
+  }
+}

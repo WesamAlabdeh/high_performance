@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>تقرير مشروع البرمجة المتوازية — PDF</title>
+  <style>
+    @page { margin: 18mm; }
+    @media print {
+      body { margin: 0; }
+      .no-print { display: none; }
+      .page-break { page-break-before: always; }
+    }
+    body { font-family: 'Arial', 'Tahoma', sans-serif; margin: 28px 40px; line-height: 1.65; color: #111; max-width: 920px; }
+    h1 { font-size: 24px; border-bottom: 3px solid #1a1a1a; padding-bottom: 10px; margin-bottom: 6px; }
+    h2 { font-size: 17px; margin-top: 28px; color: #1a1a1a; border-right: 4px solid #2563eb; padding-right: 10px; }
+    h3 { font-size: 14px; margin-top: 16px; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 13px; }
+    td, th { border: 1px solid #555; padding: 8px 10px; }
+    th { background: #e8e8e8; font-weight: bold; }
+    pre, .code { background: #f3f4f6; padding: 12px 14px; font-size: 11px; direction: ltr; text-align: left; overflow-x: auto; border: 1px solid #ccc; border-radius: 4px; white-space: pre-wrap; word-break: break-all; }
+    .meta { color: #444; font-size: 14px; margin-bottom: 20px; }
+    .ok { color: #047857; font-weight: bold; }
+    .bad { color: #b91c1c; font-weight: bold; }
+    .note { background: #eff6ff; border: 1px solid #93c5fd; padding: 12px; font-size: 13px; border-radius: 4px; }
+    .prof { background: #fef3c7; border: 1px solid #f59e0b; padding: 10px; font-size: 13px; }
+    ul { margin: 8px 0; }
+    .cover { text-align: center; padding: 60px 20px 40px; }
+    .cover h1 { border: none; font-size: 28px; }
+    .no-print { background: #2563eb; color: #fff; padding: 14px; border-radius: 8px; margin-bottom: 24px; font-size: 14px; }
+  </style>
+</head>
+<body>
+
+  <p class="no-print"><strong>لتصدير PDF:</strong> Cmd+P (Mac) أو Ctrl+P → Destination: Save as PDF → احفظ في <code>submission/pdf/takrir-kamil.pdf</code></p>
+
+  <div class="cover">
+    <h1>محرك التجارة الإلكترونية<br>عالي الأداء</h1>
+    <p class="meta" style="font-size:16px">
+      مادة: <strong>البرمجة المتوازية</strong><br>
+      الأستاذ: <strong>Huthaifa Akeel</strong><br>
+      الطالب: <strong style="border-bottom:1px solid #333;padding:0 40px">_______________</strong> &nbsp;← اكتب اسمك هنا قبل الطباعة<br>
+      التاريخ: 18 مايو 2026
+    </p>
+  </div>
+
+  <h2>1. ملخص المشروع</h2>
+  <p>تطبيق Backend (Laravel 13 + Octane/Swoole) لمتجر إلكتروني يتحمل طلبات متزامنة كثيرة. يركز على: منع أخطاء المخزون (Race Condition)، إدارة السعة، الطوابير للمهام الثقيلة، وقياس الأداء تحت 100 مستخدم.</p>
+  <p><strong>التشغيل:</strong> <code>composer octane</code> + <code>php artisan queue:work</code> — حساب تجريبي: <code>demo@highperformance.test</code> / <code>password</code></p>
+
+  <div class="prof">
+    <strong>ملاحظة للتسليم (حسب محادثة الأستاذ):</strong> التقرير يجب أن يكون <strong>PDF</strong> وليس Markdown. أداة الاختبار <strong>غير محددة</strong> — استخدمنا <code>php artisan benchmark:stress</code> بدلاً من JMeter.
+  </div>
+
+  <h2>2. المتطلبات العشرة — جدول التنفيذ</h2>
+  <table>
+    <tr><th>#</th><th>المتطلب</th><th>التنفيذ في المشروع</th></tr>
+    <tr><td>1</td><td>سلامة بيانات متزامنة</td><td><code>InventoryService</code> + <code>lockForUpdate()</code></td></tr>
+    <tr><td>2</td><td>إدارة موارد السيرفر</td><td><code>CapacityControlMiddleware</code></td></tr>
+    <tr><td>3</td><td>معالجة غير متزامنة (طوابير)</td><td><code>GenerateOrderInvoiceJob</code>, <code>SendOrderNotificationJob</code></td></tr>
+    <tr><td>4</td><td>Batch processing</td><td><code>ProcessDailySalesBatchJob</code> + <code>sales:process-daily</code></td></tr>
+    <tr><td>5</td><td>توزيع الحمل</td><td>طوابير متعددة + <code>CircuitBreakerMiddleware</code></td></tr>
+    <tr><td>6</td><td>Cache للقراءات</td><td><code>ProductCacheService</code> (store: database)</td></tr>
+    <tr><td>7</td><td>Concurrency control</td><td>Pessimistic lock + عمود <code>version</code></td></tr>
+    <tr><td>8</td><td>ACID</td><td>Transaction: مخزون + طلب + رصيد + دفع محاكى</td></tr>
+    <tr><td>9</td><td>Stress test 100 مستخدم</td><td><code>benchmark:stress --users=100</code> (القسم 5)</td></tr>
+    <tr><td>10</td><td>Benchmark / مراقبة</td><td><code>benchmark:bottlenecks</code> + <code>/metrics</code></td></tr>
+  </table>
+
+  <h2>3. المعمارية</h2>
+  <pre>
+  Client (Postman / stress tool)
+           |
+           v
+  +---------------------------+
+  | Laravel Octane (Swoole)   |
+  | Middleware: capacity +    |
+  |             circuit breaker|
+  +---------------------------+
+           |
+     +-----+-----+
+     v           v
+  Actions      /metrics (Prometheus)
+     |
+  Services: Inventory (lock), Payment, ProductCache
+     |
+  MariaDB/SQLite     Queue workers (invoices, notifications)
+  </pre>
+
+  <div class="page-break"></div>
+  <h2>4. Race Condition — قبل وبعد القفل</h2>
+  <p>الأمر: <code>php artisan concurrency:race-demo 1 --attempts=30</code></p>
+  <p>يبدأ المخزون من 10، ويُنفَّذ 30 خصم متوازي. بدون قفل يفقد التحديثات؛ مع <code>lockForUpdate</code> النتيجة صحيحة.</p>
+
+  <h3>4.1 بدون قفل (UNSAFE)</h3>
+  <pre>Stock reset to 10. Running 30 PARALLEL unsafe decrements..
+UNSAFE final stock: 5 (expected 0)</pre>
+  <p>النتيجة: <span class="bad">5</span> بدل <span class="ok">0</span> — فقدان تحديثات (lost updates).</p>
+
+  <h3>4.2 مع lockForUpdate (SAFE)</h3>
+  <pre>Stock reset. Running 30 PARALLEL safe decrements (lockForUpdate)..
+SAFE final stock: 0</pre>
+  <p>النتيجة: <span class="ok">0</span> — كل الخصومات طُبِّقت بشكل صحيح.</p>
+
+  <h2>5. اختبار الضغط — 100 مستخدم متزامن</h2>
+  <p>الأمر (مع Octane شغال):</p>
+  <pre>php artisan benchmark:stress --users=100</pre>
+  <table>
+    <tr><th>المؤشر</th><th>القيمة</th></tr>
+    <tr><td>عدد المستخدمين المحاكين</td><td>100</td></tr>
+    <tr><td>إجمالي الطلبات HTTP</td><td>134</td></tr>
+    <tr><td>مدة التنفيذ (ثانية)</td><td>2.202</td></tr>
+    <tr><td>طلبات في الثانية (RPS)</td><td>60.86</td></tr>
+    <tr><td>طلبات ناجحة</td><td class="ok">134</td></tr>
+    <tr><td>طلبات فاشلة</td><td class="ok">0</td></tr>
+    <tr><td>رموز HTTP</td><td>200: 134</td></tr>
+    <tr><td>زمن الاستجابة p50 (ms)</td><td>609.27</td></tr>
+    <tr><td>زمن الاستجابة p95 (ms)</td><td>2133.68</td></tr>
+    <tr><td>أقصى زمن (ms)</td><td>2181.24</td></tr>
+  </table>
+  <p>المزيج: تسجيل دخول + <code>GET /api/product</code> + <code>GET /api/wallet</code> — يحاكي مسار مستخدم حقيقي.</p>
+  <pre>+-------+----------------+------------------+-------+---------+--------+--------------+
+| users | total_requests | duration_seconds | rps   | success | failed | status_codes |
+| 100   | 134            | 2.202            | 60.86 | 134     | 0      | {"200":134}  |
++-------+----------------+------------------+-------+---------+--------+--------------+</pre>
+
+  <div class="page-break"></div>
+  <h2>6. واجهة API (Postman) — نماذج الاستجابة</h2>
+  <p>Collection: <code>postman/HighPerformance-User-APIs.postman_collection.json</code></p>
+
+  <h3>6.1 تسجيل الدخول — POST /api/auth/login</h3>
+  <pre>{
+  "status": "success",
+  "data": {
+    "user": {
+      "name": "Demo User",
+      "email": "demo@highperformance.test",
+      "balance": "10000.00"
+    },
+    "token": "18|…"
+  }
+}</pre>
+
+  <h3>6.2 الرصيد — GET /api/wallet</h3>
+  <pre>{
+  "status": "success",
+  "data": {
+    "balance": "10000.00",
+    "version": 1
+  }
+}</pre>
+
+  <h3>6.3 المنتجات — GET /api/product</h3>
+  <pre>{
+  "status": "success",
+  "current_page": 1,
+  "data": [
+    { "id": 1, "name": "سماعات لاسلكية", "price": "89.99", "stock": 48 },
+    { "id": 2, "name": "لوحة مفاتيح ميكانيكية", "price": "129.00", "stock": 100 }
+  ]
+}</pre>
+
+  <h3>6.4 سلة + طلب مدفوع — POST /api/cart ثم POST /api/order</h3>
+  <pre>{
+  "status": "success",
+  "message": "Order placed with simulated payment.",
+  "data": {
+    "id": 3,
+    "order_status": "confirmed",
+    "payment_status": "paid",
+    "payment_reference": "PAY-KGHNGWVIUHLV",
+    "total": "179.98"
+  }
+}</pre>
+  <p>الدفع محاكى داخل Transaction (ACID): خصم مخزون + خصم رصيد + تأكيد الطلب.</p>
+
+  <h3>6.5 فاتورة غير متزامنة (Queue)</h3>
+  <pre>storage/app/invoices/INV-00000001.json
+{
+  "order_id": 1,
+  "total": "179.98",
+  "lines": [{ "product": "سماعات لاسلكية", "qty": 2, "price": "179.98" }]
+}</pre>
+
+  <h2>7. Benchmark — نقاط الاختناق</h2>
+  <p>الأمر: <code>php artisan benchmark:bottlenecks</code></p>
+  <p>النتيجة: لا اختناق حرج في العينة الحالية. توصيات النظام:</p>
+  <ul>
+    <li>تشغيل Octane + Swoole workers لزيادة throughput</li>
+    <li>تشغيل queue workers منفصلين لكل طابور</li>
+    <li>كاش المنتجات على database (ليس octane table للقوائم الكبيرة)</li>
+  </ul>
+
+  <h2>8. AOP — مراقبة التزامن</h2>
+  <p><code>ConcurrencyAspect</code> يسجّل مدة عمليات: قفل المخزون، الدفع المحاكى، وطلبات HTTP — بدون تكرار كود القياس في كل Action.</p>
+
+  <h2>9. ماذا تعلمت</h2>
+  <ul>
+    <li>Race Condition لا يظهر في طلب واحد — يظهر فقط تحت طلبات متوازية؛ الحل: قفل على مستوى الصف.</li>
+    <li>Octane يحتفظ بالحالة بين الطلبات — لا نخزّن كائنات Eloquent في كاش Octane الصغير.</li>
+    <li>فصل الفواتير والإشعارات في Queue يحسّن زمن استجابة إنشاء الطلب.</li>
+    <li>اختبار 100 مستخدم يمكن تنفيذه بأمر Artisan وليس بالضرورة JMeter.</li>
+  </ul>
+
+  <h2>10. هيكل الملفات المسلّمة</h2>
+  <pre>
+high_performance/
+  app/Services/Concurrency/InventoryService.php
+  app/Services/Payment/SimulatedPaymentService.php
+  app/Jobs/
+  postman/
+  submission/pdf/takrir-kamil.pdf   ← هذا الملف بعد الطباعة
+  submission/sources/outputs/     ← مخرجات الأوامر
+  </pre>
+
+  <p class="meta" style="margin-top:48px;text-align:center">— نهاية التقرير —</p>
+</body>
+</html>

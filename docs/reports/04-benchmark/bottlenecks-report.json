@@ -1,0 +1,15 @@
+{
+    "generated_at": "2026-05-18T20:20:09+00:00",
+    "metrics": {
+        "counters": [],
+        "gauges": [],
+        "histograms": []
+    },
+    "bottlenecks": [],
+    "recommendations": [
+        "Enable Octane + Swoole workers for HTTP throughput",
+        "Keep PAYMENT_SIMULATION_DELAY_MS low during stress tests",
+        "Run dedicated queue workers per queue name",
+        "Use CACHE_STORE=octane or redis for hot reads"
+    ]
+}

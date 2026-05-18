@@ -1,0 +1,11 @@
+Stock reset to 10. Running 30 PARALLEL unsafe decrements..
+UNSAFE final stock: 5 (expected 0)
+Stock reset. Running 30 PARALLEL safe decrements (lockForUpdate)..
+SAFE final stock: 0
+
+Command: php artisan concurrency:race-demo 1 --attempts=30
+Date: 2026-05-18
+
+Interpretation:
+- Without lockForUpdate: lost updates → final stock 5 instead of 0
+- With lockForUpdate: all 30 decrements applied correctly → final stock 0

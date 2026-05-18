@@ -1,0 +1,20 @@
+{
+  "status": "success",
+  "message": "Order placed with simulated payment.",
+  "data": {
+    "id": 3,
+    "order_status": "confirmed",
+    "payment_status": "paid",
+    "payment_reference": "PAY-KGHNGWVIUHLV",
+    "paid_at": "2026-05-18T20:20:30.000000Z",
+    "products_cost": "179.98",
+    "total": "179.98",
+    "products": [
+      {
+        "product_id": 1,
+        "quantity": 2,
+        "purchase_price": "179.98"
+      }
+    ]
+  }
+}

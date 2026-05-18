@@ -1,0 +1,14 @@
+{
+    "users": 100,
+    "total_requests": 134,
+    "duration_seconds": 2.202,
+    "rps": 60.86,
+    "success": 134,
+    "failed": 0,
+    "status_codes": {
+        "200": 134
+    },
+    "latency_p50_ms": 609.27,
+    "latency_p95_ms": 2133.68,
+    "latency_max_ms": 2181.24
+}
