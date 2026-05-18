@@ -11,7 +11,8 @@
     "require": {
         "php": "^8.3",
         "laravel/framework": "^13.8",
-        "laravel/sanctum": "^4.3",
+        "laravel/octane": "^2.17",
+        "laravel/sanctum": "^4.0",
         "laravel/tinker": "^3.0",
         "lorisleiva/laravel-actions": "^2.10"
     },
@@ -45,9 +46,36 @@
             "npm install --ignore-scripts",
             "npm run build"
         ],
+        "octane": [
+            "Composer\\Config::disableProcessTimeout",
+            "php artisan octane:start --server=swoole --host=127.0.0.1 --port=8000 --workers=auto --task-workers=auto --max-requests=500"
+        ],
+        "octane:watch": [
+            "Composer\\Config::disableProcessTimeout",
+            "php artisan octane:start --server=swoole --host=127.0.0.1 --port=8000 --workers=auto --task-workers=auto --max-requests=500 --watch"
+        ],
+        "monitoring": [
+            "docker compose -f docker-compose.monitoring.yml up -d"
+        ],
+        "benchmark:stress": [
+            "@php artisan benchmark:stress"
+        ],
+        "benchmark:bottlenecks": [
+            "@php artisan benchmark:bottlenecks"
+        ],
+        "reports": [
+            "@php artisan project:reports --skip-stress"
+        ],
+        "reports:full": [
+            "@php artisan project:reports --users=100"
+        ],
+        "octane:prod": [
+            "Composer\\Config::disableProcessTimeout",
+            "php artisan octane:start --server=swoole --host=0.0.0.0 --port=8000 --workers=auto --task-workers=auto --max-requests=500"
+        ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
-            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1 --timeout=0\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite --kill-others"
+            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan octane:start --server=swoole --host=127.0.0.1 --port=8000 --workers=auto --task-workers=auto --max-requests=500\" \"php artisan queue:work --queue=invoices,notifications,batches,default --tries=2 --timeout=900\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=octane,queue,logs,vite --kill-others"
         ],
         "test": [
             "@php artisan config:clear --ansi @no_additional_args",

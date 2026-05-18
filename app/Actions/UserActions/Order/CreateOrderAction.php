@@ -4,31 +4,44 @@ namespace App\Actions\UserActions\Order;
 
 use App\Actions\Base\BaseAction;
 use App\Enums\OrderStatusEnum;
+use App\Enums\QueueName;
 use App\Exceptions\Errors;
 use App\Http\Resources\User\Order\OrderResource;
 use App\Jobs\GenerateOrderInvoiceJob;
 use App\Jobs\SendOrderNotificationJob;
-use App\Models\Cart;
 use App\Models\Order;
 use App\Models\OrderNotification;
 use App\Models\User;
 use App\Services\Concurrency\InventoryService;
+use App\Services\Payment\SimulatedPaymentService;
+use App\Support\Metrics\MetricsRegistry;
+use App\Support\Queue\QueueDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Lorisleiva\Actions\ActionRequest;
 
 class CreateOrderAction extends BaseAction
 {
-    public function __construct(private readonly InventoryService $inventory) {}
+    public function __construct(
+        private readonly InventoryService $inventory,
+        private readonly SimulatedPaymentService $payment,
+    ) {}
 
     public function handle(array $data, int $userId): Order
     {
         $order = DB::transaction(function () use ($data, $userId) {
-            $user = User::with(['cart.cartProducts.product'])->findOrFail($userId);
+            $user = User::with(['cart.cartProducts.product'])->lockForUpdate()->findOrFail($userId);
             $cart = $user->cart;
 
             if (! $cart || $cart->cartProducts->isEmpty()) {
                 Errors::InvalidOperation('Cart is empty', 'empty cart');
+            }
+
+            $total = (float) $cart->total_price;
+
+            if ((float) $user->balance < $total) {
+                MetricsRegistry::incrementTracked('order.checkout.insufficient_balance');
+                Errors::InvalidOperation('Insufficient wallet balance', 'balance check failed');
             }
 
             $lines = $cart->cartProducts
@@ -40,8 +53,9 @@ class CreateOrderAction extends BaseAction
             $order = Order::create([
                 'user_id' => $userId,
                 'order_status' => OrderStatusEnum::PENDING->value,
-                'products_cost' => $cart->total_price,
-                'total' => $cart->total_price,
+                'payment_status' => 'processing',
+                'products_cost' => $total,
+                'total' => $total,
                 'user_notes' => $data['user_notes'] ?? null,
             ]);
 
@@ -53,10 +67,14 @@ class CreateOrderAction extends BaseAction
                 ]);
             }
 
+            $this->payment->charge($user, $order);
+
             $cart->cartProducts()->delete();
             $cart->update(['total_price' => 0]);
 
-            return $order->load('orderProducts');
+            MetricsRegistry::incrementTracked('order.checkout.success');
+
+            return $order->load(['orderProducts', 'payments']);
         });
 
         $notification = OrderNotification::create([
@@ -67,8 +85,8 @@ class CreateOrderAction extends BaseAction
             'payload' => json_encode(['message' => 'Order #'.$order->id.' confirmed']),
         ]);
 
-        GenerateOrderInvoiceJob::dispatch($order->id);
-        SendOrderNotificationJob::dispatch($notification->id);
+        QueueDispatcher::dispatch(new GenerateOrderInvoiceJob($order->id), QueueName::Invoices);
+        QueueDispatcher::dispatch(new SendOrderNotificationJob($notification->id), QueueName::Notifications);
 
         return $order;
     }
@@ -87,7 +105,7 @@ class CreateOrderAction extends BaseAction
 
     public function jsonResponse(Order $order): JsonResponse
     {
-        return $this->success(new OrderResource($order), 'Order placed. Invoice & notification queued.', 201);
+        return $this->success(new OrderResource($order), 'Order placed with simulated payment.', 201);
     }
 
     public function authorize(): bool

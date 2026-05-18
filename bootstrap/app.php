@@ -1,6 +1,7 @@
 <?php
 
 use App\Exceptions\ApiException;
+use App\Utils\Logger;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -26,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->api(append: [
             \App\Http\Middleware\ForceJsonResponse::class,
+            \App\Http\Middleware\ConcurrencyTracingMiddleware::class,
         ]);
 
         $middleware->alias([
@@ -33,11 +35,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'circuit.breaker' => \App\Http\Middleware\CircuitBreakerMiddleware::class,
         ]);
     })
-    ->withExceptions(function (Exceptions $exceptions): void {
+    ->withExceptions(function (Exceptions $exceptions) {
         $exceptions->render(function (\Throwable $exception, Request $request) {
-            if (! $request->expectsJson() && ! $request->is('api/*')) {
-                return null;
-            }
+            Logger::LogException($exception);
 
             $errorResponse = static fn (string $error, string $message, int $statusCode) => response()->json([
                 'status' => 'fail',
@@ -45,7 +45,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 'message' => $message,
             ], $statusCode);
 
-            return match (true) {
+            $response = match (true) {
                 $exception instanceof AuthenticationException => $errorResponse(
                     'NOT_AUTHENTICATED',
                     'You are not authenticated',
@@ -70,14 +70,16 @@ return Application::configure(basePath: dirname(__DIR__))
                 ),
                 $exception instanceof HttpException && $exception->getStatusCode() === 403 => $errorResponse(
                     'FORBIDDEN',
-                    $exception->getMessage() ?: 'Forbidden',
+                    $exception->getMessage() ?: 'You do not have permission to perform this action',
                     403
                 ),
                 default => $errorResponse(
                     'INTERNAL_SERVER_ERROR',
-                    config('app.debug') ? $exception->getMessage() : 'Something went wrong',
+                    'Something went wrong',
                     500
                 ),
             };
+
+            return $response;
         });
     })->create();

@@ -13,6 +13,7 @@ class Order extends BaseModel
         return [
             'products_cost' => 'decimal:2',
             'total' => 'decimal:2',
+            'paid_at' => 'datetime',
         ];
     }
 
@@ -34,5 +35,10 @@ class Order extends BaseModel
     public function notifications(): HasMany
     {
         return $this->hasMany(OrderNotification::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
     }
 }

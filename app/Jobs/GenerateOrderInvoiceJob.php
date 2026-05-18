@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Jobs\Concerns\ConfiguresQueueProfile;
 use App\Models\Order;
 use App\Models\OrderInvoice;
 use Illuminate\Bus\Queueable;
@@ -9,20 +10,25 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Str;
 
 /**
  * Requirement 3: Async queue — invoice generation off the HTTP request path.
  */
 class GenerateOrderInvoiceJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use ConfiguresQueueProfile, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 3;
+    public int $tries;
+
+    public int $timeout;
+
+    public int $backoff;
+
+    public bool $failOnTimeout;
 
     public function __construct(public int $orderId)
     {
-        $this->onQueue(config('high_performance.queues.invoices'));
+        $this->configureQueueProfile('invoice');
     }
 
     public function handle(): void

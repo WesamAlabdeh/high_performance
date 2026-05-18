@@ -31,19 +31,46 @@ return [
     */
     'batch' => [
         'chunk_size' => (int) env('BATCH_CHUNK_SIZE', 100),
-        'queue' => env('BATCH_QUEUE', 'batches'),
+    ],
+
+    'payment' => [
+        'simulation_delay_ms' => (int) env('PAYMENT_SIMULATION_DELAY_MS', 1500),
+        'initial_balance' => (float) env('USER_INITIAL_BALANCE', 10000),
+    ],
+
+    'cache' => [
+        'product_ttl' => (int) env('PRODUCT_CACHE_TTL', 300),
+    ],
+
+    'stress_test' => [
+        'users' => (int) env('STRESS_TEST_USERS', 100),
+        'base_url' => env('STRESS_TEST_BASE_URL', 'http://127.0.0.1:8000'),
     ],
 
     /*
     |--------------------------------------------------------------------------
-    | Queue distribution (Requirement 5)
+    | Queue job profiles — tries / timeout / backoff per workload
     |--------------------------------------------------------------------------
     */
-    'queues' => [
-        'default' => env('QUEUE_CONNECTION', 'database'),
-        'notifications' => 'notifications',
-        'invoices' => 'invoices',
-        'batches' => 'batches',
+    'job_profiles' => [
+        'invoice' => [
+            'tries' => (int) env('JOB_INVOICE_TRIES', 2),
+            'timeout' => (int) env('JOB_INVOICE_TIMEOUT', 120),
+            'backoff' => (int) env('JOB_INVOICE_BACKOFF', 10),
+            'fail_on_timeout' => (bool) env('JOB_INVOICE_FAIL_ON_TIMEOUT', true),
+        ],
+        'notification' => [
+            'tries' => (int) env('JOB_NOTIFICATION_TRIES', 2),
+            'timeout' => (int) env('JOB_NOTIFICATION_TIMEOUT', 60),
+            'backoff' => (int) env('JOB_NOTIFICATION_BACKOFF', 10),
+            'fail_on_timeout' => (bool) env('JOB_NOTIFICATION_FAIL_ON_TIMEOUT', true),
+        ],
+        'batch' => [
+            'tries' => (int) env('JOB_BATCH_TRIES', 2),
+            'timeout' => (int) env('JOB_BATCH_TIMEOUT', 900),
+            'backoff' => (int) env('JOB_BATCH_BACKOFF', 10),
+            'fail_on_timeout' => (bool) env('JOB_BATCH_FAIL_ON_TIMEOUT', true),
+        ],
     ],
 
 ];

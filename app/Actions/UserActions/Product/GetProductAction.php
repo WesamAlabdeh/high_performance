@@ -4,18 +4,17 @@ namespace App\Actions\UserActions\Product;
 
 use App\Actions\Base\BaseAction;
 use App\Http\Resources\User\Product\ProductResource;
-use App\Models\Product;
+use App\Services\Cache\ProductCacheService;
 use Illuminate\Http\JsonResponse;
 use Lorisleiva\Actions\ActionRequest;
 
 class GetProductAction extends BaseAction
 {
+    public function __construct(private readonly ProductCacheService $productCache) {}
+
     public function handle(array $filters): mixed
     {
-        return Product::filters($filters)
-            ->where('is_active', true)
-            ->with('category')
-            ->paginate();
+        return $this->productCache->paginateActive($filters);
     }
 
     public function asController(ActionRequest $request): mixed

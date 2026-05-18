@@ -16,8 +16,11 @@ class DemoUserSeeder extends Seeder
             [
                 'name' => 'Demo User',
                 'password' => Hash::make('password'),
+                'balance' => config('high_performance.payment.initial_balance', 10000),
             ]
         );
+
+        $user->update(['balance' => config('high_performance.payment.initial_balance', 10000)]);
 
         Cart::firstOrCreate(['user_id' => $user->id]);
     }

@@ -2,6 +2,7 @@
 
 namespace App\Services\Concurrency;
 
+use App\Aspects\ConcurrencyAspect;
 use App\Exceptions\Errors;
 use App\Models\Product;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +19,7 @@ class InventoryService
      */
     public function reserveStock(array $lines): array
     {
-        return DB::transaction(function () use ($lines) {
+        return ConcurrencyAspect::around('inventory.pessimistic_lock', fn () => DB::transaction(function () use ($lines) {
             $productIds = array_keys($lines);
             sort($productIds);
 
@@ -50,7 +51,7 @@ class InventoryService
             }
 
             return $locked->all();
-        });
+        }));
     }
 
     public function releaseStock(array $lines): void

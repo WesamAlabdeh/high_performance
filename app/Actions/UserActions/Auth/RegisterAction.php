@@ -18,6 +18,7 @@ class RegisterAction extends BaseAction
             'name' => $data['name'],
             'email' => $data['email'],
             'password' => Hash::make($data['password']),
+            'balance' => config('high_performance.payment.initial_balance', 10000),
         ]);
 
         Cart::create(['user_id' => $user->id]);

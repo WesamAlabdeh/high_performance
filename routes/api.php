@@ -11,6 +11,7 @@ use App\Actions\UserActions\Order\GetOrderAction;
 use App\Actions\UserActions\Order\ShowOrderAction;
 use App\Actions\UserActions\Product\GetProductAction;
 use App\Actions\UserActions\Product\ShowProductAction;
+use App\Actions\UserActions\Wallet\ShowWalletAction;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('auth')->group(function () {
@@ -25,6 +26,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/', GetProductAction::class);
         Route::get('/{id}', ShowProductAction::class);
     });
+
+    Route::get('wallet', ShowWalletAction::class);
 
     Route::prefix('cart')->group(function () {
         Route::get('/', ShowCartAction::class);

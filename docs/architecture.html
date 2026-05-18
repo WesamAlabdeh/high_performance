@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>High-Performance E-Commerce — Architecture</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, sans-serif; line-height: 1.7; max-width: 900px; margin: 40px auto; padding: 0 24px; color: #1a1a1a; }
+    h1, h2, h3 { color: #0f3460; }
+    code, pre { background: #f4f6f8; padding: 2px 6px; border-radius: 4px; direction: ltr; text-align: left; }
+    pre { padding: 12px; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: right; }
+    th { background: #e8eef5; }
+    .en { direction: ltr; text-align: left; }
+    @media print { body { margin: 20px; } }
+  </style>
+</head>
+<body>
+  <h1>محرك التجارة الإلكترونية عالي الأداء</h1>
+  <p><strong>High-Performance E-Commerce Backend Engine</strong><br/>مادة البرمجة المتوازية — Laravel 13 + Octane (Swoole)</p>
+
+  <h2>1. نظرة معمارية</h2>
+  <pre class="en">
+Client (Postman/JMeter)
+        │
+        ▼
+┌───────────────────────────────────────┐
+│  Laravel Octane (Swoole workers)      │
+│  Middleware: JSON, AOP Trace, Capacity│
+│           Circuit Breaker             │
+└───────────────────────────────────────┘
+        │
+        ▼
+┌──────────────┐   ┌─────────────┐   ┌──────────────┐
+│ Actions API  │──▶│  Services   │──▶│ MariaDB      │
+│ (lorisleiva) │   │ Inventory   │   │ lockForUpdate│
+└──────────────┘   │ Payment     │   └──────────────┘
+        │          │ Cache       │
+        │          └─────────────┘
+        ▼
+┌───────────────────────────────────────┐
+│ Queues: invoices | notifications |    │
+│ batches (Redis/Database driver)       │
+└───────────────────────────────────────┘
+        │
+        ▼
+ Prometheus /metrics ──▶ Grafana
+  </pre>
+
+  <h2>2. المتطلبات العشرة — التطبيق</h2>
+  <table>
+    <tr><th>#</th><th>المتطلب</th><th>التنفيذ</th></tr>
+    <tr><td>1</td><td>وصول متزامن + سلامة بيانات</td><td><code>InventoryService</code> + <code>lockForUpdate()</code> + ترتيب product IDs</td></tr>
+    <tr><td>2</td><td>إدارة الموارد</td><td><code>ResourceCapacityService</code> + <code>CapacityControlMiddleware</code></td></tr>
+    <tr><td>3</td><td>طوابير غير متزامنة</td><td>Jobs: فاتورة، إشعار — <code>dispatch(new Job)->onQueue()</code></td></tr>
+    <tr><td>4</td><td>معالجة دفعية</td><td><code>Bus::batch</code> + <code>ProcessDailySalesBatchJob</code> chunks</td></tr>
+    <tr><td>5</td><td>توزيع حمل</td><td>طوابير متعددة + <code>CircuitBreakerService</code></td></tr>
+    <tr><td>6</td><td>تخزين مؤقت</td><td><code>ProductCacheService</code> + CACHE_STORE=octane/redis</td></tr>
+    <tr><td>7</td><td>Concurrency control</td><td>Pessimistic locks + عمود <code>version</code></td></tr>
+    <tr><td>8</td><td>ACID</td><td>Transaction واحد: مخزون + طلب + دفع محاكى + رصيد</td></tr>
+    <tr><td>9</td><td>Stress test 100 user</td><td>JMeter + <code>php artisan benchmark:stress --users=100</code></td></tr>
+    <tr><td>10</td><td>Benchmark</td><td><code>benchmark:bottlenecks</code> + Grafana</td></tr>
+  </table>
+
+  <h2>3. AOP (Aspect-Oriented Programming)</h2>
+  <p>في Laravel نطبّق AOP عبر:</p>
+  <ul>
+    <li><strong>ConcurrencyAspect</strong> — نقاط قطع (join points) حول العمليات الحرجة</li>
+    <li><strong>ConcurrencyTracingMiddleware</strong> —切面 على كل طلب HTTP</li>
+    <li>تسجيل metrics: مدة، نجاح، فشل لكل نقطة تزامن</li>
+  </ul>
+  <pre class="en">ConcurrencyAspect::around('inventory.pessimistic_lock', fn () => ...);
+ConcurrencyAspect::around('payment.simulated_gateway', fn () => ...);</pre>
+
+  <h3>نقاط التزامن (Synchronization Points)</h3>
+  <ul>
+    <li>قفل صف المنتج — <code>products</code> pessimistic</li>
+    <li>قفل رصيد المستخدم — <code>users</code> pessimistic</li>
+    <li>عداد السعة — Cache atomic</li>
+    <li>Circuit breaker state — Cache</li>
+  </ul>
+
+  <h2>4. محاكاة الدفع (بدون Stripe)</h2>
+  <p>حسب توجيهات المادة: تأخير شبكة محاكى (<code>PAYMENT_SIMULATION_DELAY_MS</code>) + التحقق من الرصيد قبل الخصم.</p>
+
+  <h2>5. البنية التحتية</h2>
+  <ul>
+    <li><strong>Octane + Swoole</strong> — workers = عدد الأنوية</li>
+    <li><strong>Queue workers</strong> — عمل منفصل عن HTTP</li>
+    <li><strong>Prometheus + Grafana</strong> — <code>docker compose -f docker-compose.monitoring.yml up</code></li>
+  </ul>
+
+  <h2>6. الاختبار والتسليم</h2>
+  <ol>
+    <li>تشغيل <code>concurrency:race-demo</code> — لقطة شاشة قبل/بعد</li>
+    <li>تشغيل JMeter 100 مستخدم — Aggregate Report</li>
+    <li>لقطات Grafana للـ CPU/RAM أثناء الضغط</li>
+    <li>تقرير <code>benchmark:bottlenecks</code> من storage/app/benchmarks</li>
+  </ol>
+
+  <p><em>لتصدير PDF: افتح هذا الملف في Chrome → طباعة → حفظ كـ PDF</em></p>
+</body>
+</html>

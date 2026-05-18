@@ -1,0 +1,328 @@
+{
+  "info": {
+    "_postman_id": "hp-user-a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "name": "HighPerformance User APIs",
+    "description": "User-facing API collection for High-Performance E-Commerce Backend (`routes/api.php`).\n\nHow to use:\n1) Set `active_env` to `local` or `live`.\n2) Update `local` / `live` URLs if needed.\n3) Run **Auth > Login** (demo user) to auto-save bearer token (`token` + `userToken`).\n4) All other requests use Sanctum Bearer auth from the collection.\n\nDemo credentials:\n- email: `demo@highperformance.test`\n- password: `password`\n\nParallel programming features:\n- **Order** routes use capacity control + circuit breaker middleware.\n- **POST /order** reserves stock with DB locks, then queues invoice & notification jobs.\n- Run queue workers after placing an order: `php artisan queue:work --queue=invoices,notifications`\n\nNotes:\n- Responses wrap payload in `data` (see `BaseAction::success`).\n- **POST /order** builds from current cart then clears cart lines.\n- **POST /cart** upserts a single product line (`product_id`, `quantity`; use `0` to remove).\n- Login/Register disable auth; everything else expects a user token.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const activeEnv = pm.collectionVariables.get('active_env') || 'local';",
+          "const local = pm.collectionVariables.get('local') || 'http://127.0.0.1:8000/api';",
+          "const live = pm.collectionVariables.get('live') || 'http://127.0.0.1:8000/api';",
+          "const selectedBaseUrl = activeEnv === 'live' ? live : local;",
+          "pm.collectionVariables.set('base_url', selectedBaseUrl);",
+          "pm.collectionVariables.set('baseUrl', selectedBaseUrl);",
+          "",
+          "const token = pm.collectionVariables.get('token') || pm.collectionVariables.get('userToken') || '';",
+          "if (token) {",
+          "  pm.collectionVariables.set('token', token);",
+          "  pm.collectionVariables.set('userToken', token);",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('Response time is less than 5s', function () {",
+          "  pm.expect(pm.response.responseTime).to.be.below(5000);",
+          "});"
+        ]
+      }
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{token}}", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "active_env", "value": "local" },
+    { "key": "local", "value": "http://127.0.0.1:8000/api" },
+    { "key": "live", "value": "http://127.0.0.1:8000/api" },
+    { "key": "base_url", "value": "http://127.0.0.1:8000/api" },
+    { "key": "baseUrl", "value": "http://127.0.0.1:8000/api" },
+    { "key": "token", "value": "" },
+    { "key": "userToken", "value": "" },
+    { "key": "categoryId", "value": "1" },
+    { "key": "productId", "value": "1" },
+    { "key": "orderId", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ahmed Ali\",\n  \"email\": \"ahmed@example.com\",\n  \"password\": \"secret123\",\n  \"password_confirmation\": \"secret123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/auth/register",
+            "description": "Creates user + empty cart. Returns bearer token."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let data = {}; try { data = pm.response.json(); } catch (e) {}",
+                  "const token = data?.data?.token;",
+                  "if (token) {",
+                  "  pm.collectionVariables.set('token', token);",
+                  "  pm.collectionVariables.set('userToken', token);",
+                  "}",
+                  "pm.test('Status is 201', function () { pm.response.to.have.status(201); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login (Demo User)",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"demo@highperformance.test\",\n  \"password\": \"password\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/auth/login",
+            "description": "Seeded demo user from `DemoUserSeeder`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let data = {}; try { data = pm.response.json(); } catch (e) {}",
+                  "const token = data?.data?.token;",
+                  "if (token) {",
+                  "  pm.collectionVariables.set('token', token);",
+                  "  pm.collectionVariables.set('userToken', token);",
+                  "}",
+                  "pm.test('Login successful', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Token saved', function () { pm.expect(pm.collectionVariables.get('token')).to.be.a('string').and.not.empty; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/logout"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Logout successful', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Product",
+      "item": [
+        {
+          "name": "Get Products",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/product",
+              "host": ["{{baseUrl}}"],
+              "path": ["product"],
+              "query": [
+                { "key": "category_id", "value": "{{categoryId}}", "description": "Filter (equal)", "disabled": true },
+                { "key": "is_active", "value": "1", "description": "Filter (equal)", "disabled": true },
+                { "key": "search", "value": "", "description": "Search name/description", "disabled": true },
+                { "key": "page", "value": "1", "disabled": true }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let data = {}; try { data = pm.response.json(); } catch (e) {}",
+                  "const first = data?.data?.[0];",
+                  "if (first?.id) pm.collectionVariables.set('productId', String(first.id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Show Product",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{baseUrl}}/product/{{productId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cart",
+      "item": [
+        {
+          "name": "Show Cart",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{baseUrl}}/cart"
+          }
+        },
+        {
+          "name": "Update Cart (Add / Change Qty)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": {{productId}},\n  \"quantity\": 2\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/cart",
+            "description": "Upserts one line. Set `quantity` to 0 to remove the product from cart."
+          }
+        },
+        {
+          "name": "Update Cart (Remove Line)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": {{productId}},\n  \"quantity\": 0\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/cart"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Order",
+      "description": "Protected by `capacity.control` and `circuit.breaker:orders` middleware.\nAfter success, run queue workers for invoice/notification jobs.",
+      "item": [
+        {
+          "name": "Get Orders",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/order",
+              "host": ["{{baseUrl}}"],
+              "path": ["order"],
+              "query": [{ "key": "page", "value": "1", "disabled": true }]
+            }
+          }
+        },
+        {
+          "name": "Show Order",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{baseUrl}}/order/{{orderId}}",
+            "description": "Includes `invoice` and `notifications` when loaded."
+          }
+        },
+        {
+          "name": "Create Order (from cart)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_notes\": \"Leave at door\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/order",
+            "description": "Uses current cart. Reserves stock with pessimistic locks (`InventoryService`). Dispatches `GenerateOrderInvoiceJob` and `SendOrderNotificationJob`. Cart is cleared after success."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let data = {}; try { data = pm.response.json(); } catch (e) {}",
+                  "const orderId = data?.data?.id;",
+                  "if (orderId) pm.collectionVariables.set('orderId', String(orderId));",
+                  "pm.test('Order created', function () { pm.response.to.have.status(201); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Parallel Demo",
+      "description": "Helpers to demonstrate course requirements during presentation.",
+      "item": [
+        {
+          "name": "Create Order (stress — run in Collection Runner)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_notes\": \"concurrent test\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/order",
+            "description": "Run with Collection Runner (iterations 10+) after adding items to cart. Watch for 503 CAPACITY_EXCEEDED when exceeding MAX_CONCURRENT_CHECKOUTS."
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,158 @@
+{
+  "info": {
+    "_postman_id": "hp-admin-4f54b06c-fc21-43cb-b4c8-2135b598f246",
+    "name": "HighPerformance Admin APIs",
+    "description": "Admin / operations API collection for High-Performance E-Commerce Backend.\n\nHow to use:\n1) Set `active_env` to `local` or `live`.\n2) Update `local` / `live` URLs if needed.\n3) Run `Auth > Login (Demo User)` to auto-save bearer token.\n4) Trigger batch jobs, then run: `php artisan queue:work --queue=batches`\n\nNotes:\n- Admin routes currently share Sanctum user auth (same as User APIs).\n- Token is stored in both `token` and `adminToken`.\n- Batch endpoint dispatches chunked `ProcessDailySalesBatchJob` via Laravel Bus batch.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const activeEnv = pm.collectionVariables.get('active_env') || 'local';",
+          "const local = pm.collectionVariables.get('local') || 'http://127.0.0.1:8000/api';",
+          "const live = pm.collectionVariables.get('live') || 'http://127.0.0.1:8000/api';",
+          "const selectedBaseUrl = activeEnv === 'live' ? live : local;",
+          "pm.collectionVariables.set('base_url', selectedBaseUrl);",
+          "pm.collectionVariables.set('baseUrl', selectedBaseUrl);",
+          "",
+          "const token = pm.collectionVariables.get('token') || pm.collectionVariables.get('adminToken') || '';",
+          "if (token) {",
+          "  pm.collectionVariables.set('token', token);",
+          "  pm.collectionVariables.set('adminToken', token);",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('Response time is less than 5s', function () {",
+          "  pm.expect(pm.response.responseTime).to.be.below(5000);",
+          "});"
+        ]
+      }
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{token}}", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "active_env", "value": "local" },
+    { "key": "local", "value": "http://127.0.0.1:8000/api" },
+    { "key": "live", "value": "http://127.0.0.1:8000/api" },
+    { "key": "base_url", "value": "http://127.0.0.1:8000/api" },
+    { "key": "baseUrl", "value": "http://127.0.0.1:8000/api" },
+    { "key": "token", "value": "" },
+    { "key": "adminToken", "value": "" },
+    { "key": "batchDate", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "auth": { "type": "noauth" },
+      "item": [
+        {
+          "name": "Login (Demo User)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"demo@highperformance.test\",\n  \"password\": \"password\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let data = {};",
+                  "try { data = pm.response.json(); } catch (e) {}",
+                  "const token = data?.data?.token;",
+                  "if (token) {",
+                  "  pm.collectionVariables.set('token', token);",
+                  "  pm.collectionVariables.set('adminToken', token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Batch Processing",
+      "description": "Requirement 4 — daily sales aggregated in background chunks.",
+      "item": [
+        {
+          "name": "Trigger Daily Sales Batch (yesterday)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/admin/batch/daily-sales",
+            "description": "Runs `sales:process-daily` without date → yesterday. Check `job_batches` table and run `php artisan queue:work --queue=batches`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Batch dispatched', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Trigger Daily Sales Batch (specific date)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"{{batchDate}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/admin/batch/daily-sales",
+            "description": "Set collection variable `batchDate` to Y-m-d (e.g. 2026-05-18)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Queue Workers (CLI Reference)",
+      "description": "Not HTTP — run these in terminal while testing async features.",
+      "item": [
+        {
+          "name": "README — Start Workers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/../",
+            "description": "Terminal commands:\n\nphp artisan queue:work --queue=invoices\nphp artisan queue:work --queue=notifications\nphp artisan queue:work --queue=batches\n\nOr all at once:\nphp artisan queue:work --queue=invoices,notifications,batches,default"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "title": "High Performance E-Commerce",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "HTTP status codes (rate)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum by (http_status) (rate(http_status_200[1m]))",
+          "legendFormat": "200"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Checkout success vs failures",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(order_checkout_success[1m])",
+          "legendFormat": "success"
+        },
+        {
+          "expr": "rate(order_checkout_insufficient_balance[1m])",
+          "legendFormat": "insufficient_balance"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Last request duration (ms)",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 8 },
+      "targets": [
+        { "expr": "http_last_request_duration_ms" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Inventory lock avg (ms)",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 8 },
+      "targets": [
+        { "expr": "aspect_inventory_pessimistic_lock_duration_ms_avg" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Payment gateway avg (ms)",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 8 },
+      "targets": [
+        { "expr": "aspect_payment_simulated_gateway_duration_ms_avg" }
+      ]
+    }
+  ]
+}

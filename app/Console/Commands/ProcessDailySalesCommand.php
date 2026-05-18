@@ -2,10 +2,10 @@
 
 namespace App\Console\Commands;
 
+use App\Enums\QueueName;
 use App\Jobs\ProcessDailySalesBatchJob;
 use App\Models\OrderProduct;
 use Carbon\Carbon;
-use Illuminate\Bus\Batch;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Bus;
 
@@ -39,7 +39,7 @@ class ProcessDailySalesCommand extends Command
 
         Bus::batch($jobs)
             ->name('daily-sales-'.$date)
-            ->onQueue(config('high_performance.queues.batches'))
+            ->onQueue(QueueName::Batches->value)
             ->dispatch();
 
         $this->info('Dispatched '.count($jobs).' batch chunk(s) for '.$date);

@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Jobs\Concerns\ConfiguresQueueProfile;
 use App\Models\DailySalesSnapshot;
 use App\Models\OrderProduct;
 use Carbon\Carbon;
@@ -18,14 +19,22 @@ use Illuminate\Support\Facades\DB;
  */
 class ProcessDailySalesBatchJob implements ShouldQueue
 {
-    use Batchable, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Batchable, ConfiguresQueueProfile, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    public int $tries;
+
+    public int $timeout;
+
+    public int $backoff;
+
+    public bool $failOnTimeout;
 
     public function __construct(
         public string $date,
         public int $offset,
         public int $limit
     ) {
-        $this->onQueue(config('high_performance.queues.batches'));
+        $this->configureQueueProfile('batch');
     }
 
     public function handle(): void

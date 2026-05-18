@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Jobs\Concerns\ConfiguresQueueProfile;
 use App\Models\OrderNotification;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -15,13 +16,19 @@ use Illuminate\Support\Facades\Log;
  */
 class SendOrderNotificationJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use ConfiguresQueueProfile, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 3;
+    public int $tries;
+
+    public int $timeout;
+
+    public int $backoff;
+
+    public bool $failOnTimeout;
 
     public function __construct(public int $notificationId)
     {
-        $this->onQueue(config('high_performance.queues.notifications'));
+        $this->configureQueueProfile('notification');
     }
 
     public function handle(): void
