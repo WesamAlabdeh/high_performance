@@ -11,6 +11,7 @@ return [
         'max_concurrent_checkouts' => (int) env('MAX_CONCURRENT_CHECKOUTS', 30),
         'slot_ttl_seconds' => (int) env('CAPACITY_SLOT_TTL', 120),
         'checkout_key' => 'capacity:checkout',
+        'cache_store' => env('CAPACITY_CACHE_STORE', 'database'),
     ],
 
     /*
@@ -22,6 +23,7 @@ return [
         'failure_threshold' => (int) env('CIRCUIT_FAILURE_THRESHOLD', 5),
         'recovery_seconds' => (int) env('CIRCUIT_RECOVERY_SECONDS', 30),
         'window_seconds' => (int) env('CIRCUIT_WINDOW_SECONDS', 60),
+        'cache_store' => env('CIRCUIT_CACHE_STORE', 'database'),
     ],
 
     /*
@@ -46,6 +48,26 @@ return [
     'stress_test' => [
         'users' => (int) env('STRESS_TEST_USERS', 100),
         'base_url' => env('STRESS_TEST_BASE_URL', 'http://127.0.0.1:8000'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Load balancer (Requirement 5)
+    |--------------------------------------------------------------------------
+    */
+    'load_balancer' => [
+        'instances' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('LB_INSTANCES', 'http://127.0.0.1:8000'))
+        ))),
+        'strategy' => env('LB_STRATEGY', 'round_robin'),
+        'health_path' => env('LB_HEALTH_PATH', '/up'),
+        'health_ttl' => (int) env('LB_HEALTH_TTL', 15),
+        'cache_store' => env('LB_CACHE_STORE', 'database'),
+    ],
+
+    'metrics' => [
+        'cache_store' => env('METRICS_CACHE_STORE', 'database'),
     ],
 
     /*

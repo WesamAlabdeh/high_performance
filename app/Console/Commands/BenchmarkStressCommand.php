@@ -13,7 +13,8 @@ class BenchmarkStressCommand extends Command
         {--users=100 : Concurrent virtual users}
         {--url= : Base URL (defaults to STRESS_TEST_BASE_URL)}
         {--email=demo@highperformance.test}
-        {--password=password}';
+        {--password=password}
+        {--checkout : Include cart+order checkout for 1/5 of users}';
 
     protected $description = 'Requirement 9/10: HTTP stress + benchmark report (100 users by default)';
 
@@ -23,6 +24,7 @@ class BenchmarkStressCommand extends Command
         $baseUrl = rtrim($this->option('url') ?: config('high_performance.stress_test.base_url'), '/');
         $email = (string) $this->option('email');
         $password = (string) $this->option('password');
+        $includeCheckout = (bool) $this->option('checkout');
 
         $this->info("Authenticating at {$baseUrl}...");
 
@@ -49,7 +51,7 @@ class BenchmarkStressCommand extends Command
         $this->info('Token acquired. Running stress mix...');
 
         $started = microtime(true);
-        $responses = Http::pool(function ($pool) use ($users, $baseUrl, $token) {
+        $responses = Http::pool(function ($pool) use ($users, $baseUrl, $token, $includeCheckout) {
             for ($i = 0; $i < $users; $i++) {
                 $pool->as("products_{$i}")
                     ->withToken($token)
@@ -62,12 +64,30 @@ class BenchmarkStressCommand extends Command
                         ->acceptJson()
                         ->get("{$baseUrl}/api/wallet");
                 }
+
+                if ($includeCheckout && $i % 5 === 0) {
+                    $pool->as("cart_{$i}")
+                        ->withToken($token)
+                        ->acceptJson()
+                        ->post("{$baseUrl}/api/cart", [
+                            'product_id' => 1,
+                            'quantity' => 1,
+                        ]);
+
+                    $pool->as("order_{$i}")
+                        ->withToken($token)
+                        ->acceptJson()
+                        ->post("{$baseUrl}/api/order", [
+                            'user_notes' => 'stress-test',
+                        ]);
+                }
             }
         });
         $duration = microtime(true) - $started;
 
         $stats = [
             'users' => $users,
+            'checkout_included' => $includeCheckout,
             'total_requests' => count($responses),
             'duration_seconds' => round($duration, 3),
             'rps' => round(count($responses) / max($duration, 0.001), 2),
@@ -80,6 +100,7 @@ class BenchmarkStressCommand extends Command
         foreach ($responses as $response) {
             if ($response instanceof \Throwable) {
                 $stats['failed']++;
+
                 continue;
             }
 

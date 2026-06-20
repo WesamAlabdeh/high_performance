@@ -2,36 +2,49 @@
 
 namespace App\Support\Metrics;
 
+use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Support\Facades\Cache;
 
 /**
  * Lightweight metrics store (Prometheus text exposition compatible).
- * Shared via cache driver (octane/redis/database).
+ * Uses database/redis store — Octane table keys are too short for long metric names.
  */
 final class MetricsRegistry
 {
+    private static function cache(): Repository
+    {
+        return Cache::store(config('high_performance.metrics.cache_store', 'database'));
+    }
+
+    private static function storageKey(string $prefix, string $name): string
+    {
+        $key = "{$prefix}:{$name}";
+
+        return strlen($key) > 60 ? "{$prefix}:".md5($name) : $key;
+    }
+
     public static function increment(string $name, int $by = 1): void
     {
-        $key = "metrics:counter:{$name}";
-        Cache::put($key, (int) Cache::get($key, 0) + $by, now()->addHours(6));
+        $key = self::storageKey('metrics:counter', $name);
+        self::cache()->put($key, (int) self::cache()->get($key, 0) + $by, now()->addHours(6));
     }
 
     public static function observe(string $name, float $value): void
     {
-        $key = "metrics:histogram:{$name}";
-        $samples = Cache::get($key, []);
+        $key = self::storageKey('metrics:histogram', $name);
+        $samples = self::cache()->get($key, []);
         $samples[] = $value;
 
         if (count($samples) > 5000) {
             $samples = array_slice($samples, -5000);
         }
 
-        Cache::put($key, $samples, now()->addHours(6));
+        self::cache()->put($key, $samples, now()->addHours(6));
     }
 
     public static function gauge(string $name, float $value): void
     {
-        Cache::put("metrics:gauge:{$name}", $value, now()->addHours(6));
+        self::cache()->put(self::storageKey('metrics:gauge', $name), $value, now()->addHours(6));
     }
 
     /**
@@ -39,25 +52,17 @@ final class MetricsRegistry
      */
     public static function all(): array
     {
-        $store = Cache::getStore();
         $counters = [];
         $gauges = [];
         $histograms = [];
-
-        if (! method_exists($store, 'getRedis')) {
-            return compact('counters', 'gauges', 'histograms');
-        }
-
-        // Fallback: scan known metric keys from our naming convention is hard without Redis keys().
-        // For university demo we persist a manifest list.
-        $manifest = Cache::get('metrics:manifest', []);
+        $manifest = self::cache()->get('metrics:manifest', []);
 
         foreach ($manifest as $entry) {
             [$type, $name] = explode(':', $entry, 2);
             match ($type) {
-                'counter' => $counters[$name] = (int) Cache::get("metrics:counter:{$name}", 0),
-                'gauge' => $gauges[$name] = (float) Cache::get("metrics:gauge:{$name}", 0),
-                'histogram' => $histograms[$name] = self::summarizeHistogram((array) Cache::get("metrics:histogram:{$name}", [])),
+                'counter' => $counters[$name] = (int) self::cache()->get(self::storageKey('metrics:counter', $name), 0),
+                'gauge' => $gauges[$name] = (float) self::cache()->get(self::storageKey('metrics:gauge', $name), 0),
+                'histogram' => $histograms[$name] = self::summarizeHistogram((array) self::cache()->get(self::storageKey('metrics:histogram', $name), [])),
                 default => null,
             };
         }
@@ -67,11 +72,11 @@ final class MetricsRegistry
 
     public static function track(string $type, string $name): void
     {
-        $manifest = Cache::get('metrics:manifest', []);
+        $manifest = self::cache()->get('metrics:manifest', []);
         $entry = "{$type}:{$name}";
         if (! in_array($entry, $manifest, true)) {
             $manifest[] = $entry;
-            Cache::put('metrics:manifest', $manifest, now()->addDay());
+            self::cache()->put('metrics:manifest', $manifest, now()->addDay());
         }
     }
 

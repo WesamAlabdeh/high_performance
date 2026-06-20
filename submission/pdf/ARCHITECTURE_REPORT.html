@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>تقرير مشروع البرمجة المتوازية — High-Performance E-Commerce</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; line-height: 1.7; max-width: 900px; margin: 2rem auto; padding: 0 1.5rem; color: #1a1a1a; }
+    h1, h2, h3 { color: #0f3460; }
+    table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+    th, td { border: 1px solid #ccc; padding: 0.5rem 0.75rem; text-align: right; }
+    th { background: #e8f0fe; }
+    pre, code { background: #f4f4f4; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.9rem; }
+    pre { padding: 1rem; overflow-x: auto; direction: ltr; text-align: left; }
+    .diagram { background: #fafafa; border: 1px solid #ddd; padding: 1rem; direction: ltr; text-align: left; font-family: monospace; font-size: 0.85rem; }
+    @media print { body { max-width: none; } }
+  </style>
+</head>
+<body>
+
+<h1>مشروع مادة البرمجة المتوازية</h1>
+<p><strong>اسم المشروع:</strong> محرك Backend للتجارة الإلكترونية عالية الأداء<br>
+<strong>التقنية:</strong> Laravel 13 + Octane (Swoole) + Sanctum + Queues</p>
+
+<h2>1. فكرة المشروع</h2>
+<p>نظام تجارة إلكترونية يخدم آلاف الطلبات المتزامنة مع الحفاظ على سلامة البيانات (المخزون، الرصيد، الطلبات) عبر آليات تزامن، طوابير، كاش موزّع، ومراقبة أداء.</p>
+
+<h2>2. مخطط المعمارية (Architecture)</h2>
+<div class="diagram">
+┌─────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│   Client    │────▶│  Octane / Swoole │────▶│  API Actions    │
+│  (Postman)  │     │  Workers (HTTP)  │     │  (Laravel)      │
+└─────────────┘     └────────┬─────────┘     └────────┬────────┘
+                             │                          │
+                    ┌────────▼────────┐        ┌────────▼────────┐
+                    │ Middleware      │        │ Services        │
+                    │ - Capacity      │        │ - Inventory     │
+                    │ - Circuit Break │        │ - Payment       │
+                    │ - AOP Trace     │        │ - Cache         │
+                    └────────┬────────┘        │ - LoadBalancer  │
+                             │                 └────────┬────────┘
+                    ┌────────▼────────┐        ┌────────▼────────┐
+                    │ Redis / Cache   │        │ MariaDB         │
+                    │ Metrics, Slots  │        │ ACID Txns       │
+                    └─────────────────┘        └────────┬────────┘
+                                                        │
+                                               ┌────────▼────────┐
+                                               │ Queue Workers   │
+                                               │ invoices / notif│
+                                               │ batches         │
+                                               └─────────────────┘
+</div>
+
+<h2>3. البرمجة الجانبية (AOP) — ConcurrencyAspect</h2>
+<p>الكلاس <code>App\Aspects\ConcurrencyAspect</code> يطبّق نمط Around Advice على نقاط التزامن:</p>
+<ul>
+  <li><code>before()</code> — عداد دخول لكل نقطة</li>
+  <li><code>after()</code> — قياس المدة (ms) ونجاح/فشل</li>
+  <li><code>around()</code> — يغلف callback كامل مع تتبع metrics</li>
+</ul>
+<p>يُستخدم في: <code>InventoryService</code>، <code>SimulatedPaymentService</code>، <code>LoadBalancerService</code>، و<code>ConcurrencyTracingMiddleware</code> لكل طلب HTTP.</p>
+
+<h2>4. نقاط التزامن (Synchronization Points)</h2>
+<table>
+  <tr><th>النقطة</th><th>الآلية</th><th>الملف</th></tr>
+  <tr><td>حجز المخزون</td><td>Pessimistic <code>lockForUpdate()</code></td><td>InventoryService</td></tr>
+  <tr><td>حجز المخزون (بديل)</td><td>Optimistic <code>version</code> column</td><td>OptimisticInventoryService</td></tr>
+  <tr><td>خصم الرصيد</td><td>Transaction + row lock</td><td>SimulatedPaymentService</td></tr>
+  <tr><td>Checkout كامل</td><td>DB::transaction</td><td>CreateOrderAction</td></tr>
+  <tr><td>حد السعة</td><td>Cache mutex + slot counter</td><td>ResourceCapacityService</td></tr>
+  <tr><td>Circuit breaker</td><td>Cache failure window</td><td>CircuitBreakerService</td></tr>
+</table>
+
+<h2>5. تغطية المتطلبات العشرة</h2>
+<table>
+  <tr><th>#</th><th>المتطلب</th><th>التطبيق</th><th>أمر/دليل</th></tr>
+  <tr><td>1</td><td>Concurrent Access & Data Integrity</td><td>InventoryService + race demo</td><td><code>concurrency:race-demo</code></td></tr>
+  <tr><td>2</td><td>Resource Management</td><td>CapacityControlMiddleware</td><td>MAX_CONCURRENT_CHECKOUTS=30</td></tr>
+  <tr><td>3</td><td>Async Queues</td><td>Invoice + Notification jobs</td><td>queue:work</td></tr>
+  <tr><td>4</td><td>Batch Processing</td><td>ProcessDailySalesBatchJob</td><td>sales:process-daily</td></tr>
+  <tr><td>5</td><td>Load Distribution</td><td>LoadBalancerService + circuit breaker</td><td>GET /api/admin/load-balancer/status</td></tr>
+  <tr><td>6</td><td>Distributed Caching</td><td>ProductCacheService + Redis</td><td>PRODUCT_CACHE_STORE=redis</td></tr>
+  <tr><td>7</td><td>Concurrency Control</td><td>Pessimistic + Optimistic locking</td><td><code>concurrency:optimistic-demo</code></td></tr>
+  <tr><td>8</td><td>ACID Transactions</td><td>Checkout transaction</td><td>CreateOrderAction</td></tr>
+  <tr><td>9</td><td>Stress Testing</td><td>benchmark:stress 100 users</td><td>JMeter أو artisan</td></tr>
+  <tr><td>10</td><td>Benchmarking</td><td>MetricsRegistry + bottlenecks</td><td>benchmark:bottlenecks</td></tr>
+</table>
+
+<h2>6. تدفق الطلب (Checkout)</h2>
+<pre>
+POST /api/order
+  → CapacityControlMiddleware (acquire slot)
+  → CircuitBreakerMiddleware (guard orders)
+  → CreateOrderAction::handle
+       → DB::transaction
+            → lock user + cart
+            → InventoryService::reserveStock (pessimistic)
+            → create order + lines
+            → SimulatedPaymentService::charge
+            → clear cart
+       → dispatch GenerateOrderInvoiceJob
+       → dispatch SendOrderNotificationJob
+  → release capacity slot
+</pre>
+
+<h2>7. المراقبة</h2>
+<ul>
+  <li>Prometheus: <code>GET /metrics</code></li>
+  <li>Grafana: <code>composer monitoring</code> → http://localhost:3000</li>
+  <li>تقارير: <code>docs/reports/</code></li>
+</ul>
+
+<h2>8. الحساب التجريبي</h2>
+<p><code>demo@highperformance.test</code> / <code>password</code></p>
+
+<p style="margin-top:2rem;color:#666;font-size:0.9rem">لتصدير PDF: من المتصفح File → Print → Save as PDF</p>
+</body>
+</html>

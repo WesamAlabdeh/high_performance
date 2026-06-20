@@ -19,6 +19,7 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
+        <env name="APP_KEY" value="base64:2fl+KtvkdphvQyEf+2jqfOu2Ae1GvUWZ5kX8o0p3x1E="/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
@@ -31,6 +32,7 @@
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
-        <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="PAYMENT_SIMULATION_DELAY_MS" value="0"/>
+        <env name="PRODUCT_CACHE_STORE" value="array"/>
     </php>
 </phpunit>

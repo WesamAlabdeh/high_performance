@@ -57,6 +57,9 @@
         "monitoring": [
             "docker compose -f docker-compose.monitoring.yml up -d"
         ],
+        "redis": [
+            "docker compose up -d redis"
+        ],
         "benchmark:stress": [
             "@php artisan benchmark:stress"
         ],

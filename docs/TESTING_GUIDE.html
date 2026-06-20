@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>دليل الاختبار — High-Performance E-Commerce</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; line-height: 1.7; max-width: 900px; margin: 2rem auto; padding: 0 1.5rem; }
+    h1, h2 { color: #0f3460; }
+    pre { background: #f4f4f4; padding: 1rem; direction: ltr; text-align: left; overflow-x: auto; }
+    code { background: #eee; padding: 0.15rem 0.35rem; border-radius: 3px; }
+  </style>
+</head>
+<body>
+<h1>دليل الاختبار والعرض العملي</h1>
+
+<h2>التشغيل</h2>
+<pre>
+composer install
+cp .env.example .env
+php artisan key:generate
+docker compose up -d redis          # كاش موزّع (متطلب 6)
+php artisan migrate --seed
+
+# نافذة 1
+composer octane
+
+# نافذة 2
+php artisan queue:work --queue=invoices,notifications,batches,default
+
+# نافذة 3 (اختياري)
+composer monitoring
+</pre>
+
+<h2>اختبارات المتطلبات</h2>
+<pre>
+# 1 — Race condition (بدون قفل vs مع قفل)
+php artisan concurrency:race-demo 1 --attempts=30
+
+# 7 — Optimistic vs Pessimistic locking
+php artisan concurrency:optimistic-demo 1 --attempts=20
+
+# 9 — ضغط 100 مستخدم
+PAYMENT_SIMULATION_DELAY_MS=0 php artisan benchmark:stress --users=100
+
+# 9+10 — ضغط مع checkout + تحليل عنق الزجاجة
+php artisan benchmark:stress --users=100 --checkout
+php artisan benchmark:bottlenecks
+
+# 4 — Batch يومي
+php artisan sales:process-daily
+# أو POST /api/admin/batch/daily-sales
+
+# 5 — حالة موزّع الحمل
+GET /api/admin/load-balancer/status
+
+# PHPUnit
+php artisan test
+</pre>
+
+<h2>JMeter (100 مستخدم)</h2>
+<p>راجع <code>tests/jmeter/README.md</code> — Thread Group: 100 threads, Ramp-up 10s.</p>
+
+<h2>تجهيز ملفات التسليم</h2>
+<pre>
+php artisan submission:prepare
+# يملأ submission/sources/outputs و submission/pdf/
+</pre>
+
+<h2>Grafana</h2>
+<p>http://localhost:3000 — admin / admin — Dashboard: High Performance</p>
+</body>
+</html>

@@ -140,6 +140,34 @@
       ]
     },
     {
+      "name": "Load Balancer",
+      "description": "Requirement 5 — instance health and round-robin selection.",
+      "item": [
+        {
+          "name": "Load Balancer Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/admin/load-balancer/status",
+            "description": "Returns configured instances, health probes, and next selected instance."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('LB status OK', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "Queue Workers (CLI Reference)",
       "description": "Not HTTP — run these in terminal while testing async features.",
       "item": [

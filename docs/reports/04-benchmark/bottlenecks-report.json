@@ -1,9 +1,38 @@
 {
-    "generated_at": "2026-05-18T20:20:09+00:00",
+    "generated_at": "2026-06-19T12:52:44+00:00",
     "metrics": {
-        "counters": [],
-        "gauges": [],
-        "histograms": []
+        "counters": {
+            "aspect.http.59ad2c0776bf.entered": 1,
+            "http.status.200": 119,
+            "aspect.http.59ad2c0776bf.success": 1,
+            "aspect.http.9e3d15132783.entered": 87,
+            "aspect.http.9e3d15132783.success": 88,
+            "aspect.http.6719f51405d7.entered": 34,
+            "aspect.http.6719f51405d7.success": 34
+        },
+        "gauges": {
+            "http.last_request_duration_ms": 0.6320476531982422
+        },
+        "histograms": {
+            "aspect.http.59ad2c0776bf.duration_ms": {
+                "count": 1,
+                "sum": 250.89,
+                "avg": 250.89,
+                "max": 250.89
+            },
+            "aspect.http.9e3d15132783.duration_ms": {
+                "count": 87,
+                "sum": 208.51,
+                "avg": 2.4,
+                "max": 6.82
+            },
+            "aspect.http.6719f51405d7.duration_ms": {
+                "count": 34,
+                "sum": 67.17,
+                "avg": 1.98,
+                "max": 7.65
+            }
+        }
     },
     "bottlenecks": [],
     "recommendations": [

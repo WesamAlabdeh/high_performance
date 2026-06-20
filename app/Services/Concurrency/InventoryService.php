@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Requirement 1: Concurrent access & data integrity.
+ * Requirement 7: Pessimistic locking — see also OptimisticInventoryService.
  * Synchronization point: pessimistic row lock inside DB transaction.
  */
 class InventoryService

@@ -3,6 +3,7 @@
 namespace App\Services\LoadBalancing;
 
 use App\Exceptions\Errors;
+use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -10,9 +11,14 @@ use Illuminate\Support\Facades\Cache;
  */
 class CircuitBreakerService
 {
+    private function cache(): Repository
+    {
+        return Cache::store(config('high_performance.circuit_breaker.cache_store', 'database'));
+    }
+
     public function guard(string $service): void
     {
-        $state = Cache::get($this->stateKey($service));
+        $state = $this->cache()->get($this->stateKey($service));
 
         if ($state === 'open') {
             Errors::CircuitOpen();
@@ -21,18 +27,18 @@ class CircuitBreakerService
 
     public function recordSuccess(string $service): void
     {
-        Cache::forget($this->failureKey($service));
-        Cache::put($this->stateKey($service), 'closed', config('high_performance.circuit_breaker.recovery_seconds'));
+        $this->cache()->forget($this->failureKey($service));
+        $this->cache()->put($this->stateKey($service), 'closed', config('high_performance.circuit_breaker.recovery_seconds'));
     }
 
     public function recordFailure(string $service): void
     {
         $config = config('high_performance.circuit_breaker');
-        $failures = (int) Cache::get($this->failureKey($service), 0) + 1;
-        Cache::put($this->failureKey($service), $failures, $config['window_seconds']);
+        $failures = (int) $this->cache()->get($this->failureKey($service), 0) + 1;
+        $this->cache()->put($this->failureKey($service), $failures, $config['window_seconds']);
 
         if ($failures >= $config['failure_threshold']) {
-            Cache::put($this->stateKey($service), 'open', $config['recovery_seconds']);
+            $this->cache()->put($this->stateKey($service), 'open', $config['recovery_seconds']);
         }
     }
 

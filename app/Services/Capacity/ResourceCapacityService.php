@@ -3,43 +3,68 @@
 namespace App\Services\Capacity;
 
 use App\Exceptions\Errors;
+use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 /**
  * Requirement 2: Resource management & capacity control.
- * Limits concurrent checkout operations using atomic cache counters.
+ * Limits concurrent checkout operations using atomic cache counters + mutex.
+ * Uses database/redis store (not Octane) because OctaneStore lacks lock support.
  */
 class ResourceCapacityService
 {
+    private function cache(): Repository
+    {
+        return Cache::store(config('high_performance.capacity.cache_store', 'database'));
+    }
+
     public function acquire(string $key): string
     {
         $config = config('high_performance.capacity');
-        $max = $config['max_concurrent_checkouts'];
         $cacheKey = $config['checkout_key'].':'.$key;
-        $current = (int) Cache::get($cacheKey, 0);
+        $lock = $this->cache()->lock($cacheKey.':mutex', 10);
 
-        if ($current >= $max) {
-            Errors::CapacityExceeded();
+        try {
+            return $lock->block(5, function () use ($config, $cacheKey) {
+                $max = $config['max_concurrent_checkouts'];
+                $slots = $this->cache()->get($cacheKey.'_slots', []);
+
+                if (count($slots) >= $max) {
+                    Errors::CapacityExceeded();
+                }
+
+                $token = Str::uuid()->toString();
+                $slots[$token] = now()->timestamp;
+                $this->cache()->put($cacheKey.'_slots', $slots, $config['slot_ttl_seconds']);
+                $this->cache()->put($cacheKey, count($slots), $config['slot_ttl_seconds']);
+
+                return $token;
+            }) ?? throw new LockTimeoutException('Capacity lock timeout');
+        } catch (LockTimeoutException) {
+            Errors::CapacityExceeded('System is busy. Please retry shortly.', 'capacity lock timeout');
         }
-
-        $token = Str::uuid()->toString();
-        $slots = Cache::get($cacheKey.'_slots', []);
-        $slots[$token] = now()->timestamp;
-        Cache::put($cacheKey.'_slots', $slots, $config['slot_ttl_seconds']);
-        Cache::put($cacheKey, count($slots), $config['slot_ttl_seconds']);
-
-        return $token;
     }
 
     public function release(string $key, string $token): void
     {
         $config = config('high_performance.capacity');
         $cacheKey = $config['checkout_key'].':'.$key;
-        $slots = Cache::get($cacheKey.'_slots', []);
+        $lock = $this->cache()->lock($cacheKey.':mutex', 10);
 
-        unset($slots[$token]);
-        Cache::put($cacheKey.'_slots', $slots, $config['slot_ttl_seconds']);
-        Cache::put($cacheKey, count($slots), $config['slot_ttl_seconds']);
+        $lock->block(5, function () use ($config, $cacheKey, $token) {
+            $slots = $this->cache()->get($cacheKey.'_slots', []);
+            unset($slots[$token]);
+            $this->cache()->put($cacheKey.'_slots', $slots, $config['slot_ttl_seconds']);
+            $this->cache()->put($cacheKey, count($slots), $config['slot_ttl_seconds']);
+        });
+    }
+
+    public function currentCount(string $key): int
+    {
+        $cacheKey = config('high_performance.capacity.checkout_key').':'.$key;
+
+        return count($this->cache()->get($cacheKey.'_slots', []));
     }
 }

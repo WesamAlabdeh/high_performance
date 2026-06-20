@@ -15,7 +15,10 @@ class ConcurrencyTracingMiddleware
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $point = 'http.'.str_replace('/', '.', trim($request->path(), '/'));
+        $routeName = $request->route()?->getName();
+        $point = $routeName
+            ? 'route.'.$routeName
+            : 'http.'.substr(md5($request->path()), 0, 12);
 
         return ConcurrencyAspect::around($point, function () use ($request, $next, $point) {
             $started = microtime(true);

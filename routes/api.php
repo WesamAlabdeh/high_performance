@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\AdminActions\Batch\TriggerDailySalesBatchAction;
+use App\Actions\AdminActions\LoadBalancer\ShowLoadBalancerStatusAction;
 use App\Actions\UserActions\Auth\LoginAction;
 use App\Actions\UserActions\Auth\LogoutAction;
 use App\Actions\UserActions\Auth\RegisterAction;
@@ -43,4 +44,5 @@ Route::middleware('auth:sanctum')->group(function () {
 
 Route::prefix('admin')->middleware('auth:sanctum')->group(function () {
     Route::post('batch/daily-sales', TriggerDailySalesBatchAction::class);
+    Route::get('load-balancer/status', ShowLoadBalancerStatusAction::class);
 });

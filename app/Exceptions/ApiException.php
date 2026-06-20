@@ -24,4 +24,9 @@ class ApiException extends Exception
             'message' => $this->getMessage(),
         ], $this->statusCode);
     }
+
+    public function errorCode(): string
+    {
+        return $this->error;
+    }
 }
