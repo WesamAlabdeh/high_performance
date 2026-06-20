@@ -8,11 +8,6 @@ use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
-/**
- * Requirement 2: Resource management & capacity control.
- * Limits concurrent checkout operations using atomic cache counters + mutex.
- * Uses database/redis store (not Octane) because OctaneStore lacks lock support.
- */
 class ResourceCapacityService
 {
     private function cache(): Repository

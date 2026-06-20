@@ -5,10 +5,6 @@ namespace App\Support\Metrics;
 use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Support\Facades\Cache;
 
-/**
- * Lightweight metrics store (Prometheus text exposition compatible).
- * Uses database/redis store — Octane table keys are too short for long metric names.
- */
 final class MetricsRegistry
 {
     private static function cache(): Repository
@@ -47,9 +43,6 @@ final class MetricsRegistry
         self::cache()->put(self::storageKey('metrics:gauge', $name), $value, now()->addHours(6));
     }
 
-    /**
-     * @return array{counters: array<string, int>, gauges: array<string, float>, histograms: array<string, array{count: int, sum: float, avg: float, max: float}>}
-     */
     public static function all(): array
     {
         $counters = [];
@@ -98,10 +91,6 @@ final class MetricsRegistry
         self::gauge($name, $value);
     }
 
-    /**
-     * @param  array<int, float>  $samples
-     * @return array{count: int, sum: float, avg: float, max: float}
-     */
     private static function summarizeHistogram(array $samples): array
     {
         if ($samples === []) {

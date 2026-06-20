@@ -3,16 +3,14 @@
 namespace App\Services\Cache;
 
 use App\Models\Product;
+use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Pagination\LengthAwarePaginator as Paginator;
 use Illuminate\Support\Facades\Cache;
 
-/**
- * Requirement 6: Cache product reads as arrays (safe under Octane; no serialized Eloquent graphs).
- */
 class ProductCacheService
 {
-    private function store(): \Illuminate\Contracts\Cache\Repository
+    private function store(): Repository
     {
         return Cache::store(config('high_performance.cache.product_store', 'database'));
     }
@@ -61,7 +59,6 @@ class ProductCacheService
         }
     }
 
-    /** @return array{items: list<array<string, mixed>>, total: int, per_page: int, current_page: int}> */
     private function paginatorToPayload(LengthAwarePaginator $paginator): array
     {
         return [
@@ -72,7 +69,6 @@ class ProductCacheService
         ];
     }
 
-    /** @param array{items: list<array<string, mixed>>, total: int, per_page: int, current_page: int}> $payload */
     private function paginatorFromPayload(array $payload): LengthAwarePaginator
     {
         $items = collect($payload['items'])->map(

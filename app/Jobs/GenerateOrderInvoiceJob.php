@@ -11,9 +11,6 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 
-/**
- * Requirement 3: Async queue — invoice generation off the HTTP request path.
- */
 class GenerateOrderInvoiceJob implements ShouldQueue
 {
     use ConfiguresQueueProfile, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;

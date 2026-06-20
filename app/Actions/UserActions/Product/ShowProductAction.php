@@ -7,7 +7,6 @@ use App\Http\Resources\User\Product\ProductResource;
 use App\Models\Product;
 use App\Services\Cache\ProductCacheService;
 use Illuminate\Http\JsonResponse;
-use Lorisleiva\Actions\ActionRequest;
 
 class ShowProductAction extends BaseAction
 {

@@ -11,9 +11,6 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
-/**
- * Requirement 3: Async queue — notifications off the HTTP request path.
- */
 class SendOrderNotificationJob implements ShouldQueue
 {
     use ConfiguresQueueProfile, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;

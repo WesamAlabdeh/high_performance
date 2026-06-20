@@ -24,15 +24,6 @@ use Laravel\Octane\Octane;
 
 return [
 
-    /*
-    |--------------------------------------------------------------------------
-    | Octane Server
-    |--------------------------------------------------------------------------
-    |
-    | Supported: "roadrunner", "swoole", "frankenphp"
-    |
-    */
-
     'server' => env('OCTANE_SERVER', 'swoole'),
 
     'host' => env('OCTANE_HOST', '127.0.0.1'),
@@ -47,16 +38,6 @@ return [
 
     'https' => env('OCTANE_HTTPS', false),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Octane Listeners
-    |--------------------------------------------------------------------------
-    |
-    | DisconnectFromDatabases + CollectGarbage are required for long-lived
-    | Swoole workers to avoid stale DB connections and memory growth.
-    |
-    */
-
     'listeners' => [
         WorkerStarting::class => [
             EnsureUploadedFilesAreValid::class,
@@ -69,11 +50,11 @@ return [
         ],
 
         RequestHandled::class => [
-            //
+
         ],
 
         RequestTerminated::class => [
-            //
+
         ],
 
         TaskReceived::class => [
@@ -81,7 +62,7 @@ return [
         ],
 
         TaskTerminated::class => [
-            //
+
         ],
 
         TickReceived::class => [
@@ -89,7 +70,7 @@ return [
         ],
 
         TickTerminated::class => [
-            //
+
         ],
 
         OperationTerminated::class => [
@@ -114,24 +95,12 @@ return [
     ],
 
     'flush' => [
-        //
-    ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Swoole tables (shared memory between workers on the same node)
-    |--------------------------------------------------------------------------
-    */
+    ],
 
     'tables' => [
-        //
-    ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Octane cache (Swoole table) — use CACHE_STORE=octane when Octane runs
-    |--------------------------------------------------------------------------
-    */
+    ],
 
     'cache' => [
         'rows' => (int) env('OCTANE_CACHE_ROWS', 10000),
@@ -153,12 +122,6 @@ return [
     'garbage' => (int) env('OCTANE_GARBAGE', 50),
 
     'max_execution_time' => (int) env('OCTANE_MAX_EXECUTION_TIME', 30),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Swoole server options
-    |--------------------------------------------------------------------------
-    */
 
     'swoole' => [
         'command' => env('OCTANE_SWOOLE_COMMAND', 'swoole-server'),

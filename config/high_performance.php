@@ -2,11 +2,6 @@
 
 return [
 
-    /*
-    |--------------------------------------------------------------------------
-    | Resource capacity (Requirement 2)
-    |--------------------------------------------------------------------------
-    */
     'capacity' => [
         'max_concurrent_checkouts' => (int) env('MAX_CONCURRENT_CHECKOUTS', 30),
         'slot_ttl_seconds' => (int) env('CAPACITY_SLOT_TTL', 120),
@@ -14,11 +9,6 @@ return [
         'cache_store' => env('CAPACITY_CACHE_STORE', 'database'),
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Circuit breaker (Requirement 5)
-    |--------------------------------------------------------------------------
-    */
     'circuit_breaker' => [
         'failure_threshold' => (int) env('CIRCUIT_FAILURE_THRESHOLD', 5),
         'recovery_seconds' => (int) env('CIRCUIT_RECOVERY_SECONDS', 30),
@@ -26,11 +16,6 @@ return [
         'cache_store' => env('CIRCUIT_CACHE_STORE', 'database'),
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Batch processing (Requirement 4)
-    |--------------------------------------------------------------------------
-    */
     'batch' => [
         'chunk_size' => (int) env('BATCH_CHUNK_SIZE', 100),
     ],
@@ -50,11 +35,6 @@ return [
         'base_url' => env('STRESS_TEST_BASE_URL', 'http://127.0.0.1:8000'),
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Load balancer (Requirement 5)
-    |--------------------------------------------------------------------------
-    */
     'load_balancer' => [
         'instances' => array_values(array_filter(array_map(
             'trim',
@@ -70,11 +50,6 @@ return [
         'cache_store' => env('METRICS_CACHE_STORE', 'database'),
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Queue job profiles — tries / timeout / backoff per workload
-    |--------------------------------------------------------------------------
-    */
     'job_profiles' => [
         'invoice' => [
             'tries' => (int) env('JOB_INVOICE_TRIES', 2),

@@ -6,10 +6,6 @@ use App\Support\Metrics\MetricsRegistry;
 use Closure;
 use Throwable;
 
-/**
- * AOP-style cross-cutting tracer for synchronization / concurrency points.
- * Used by services and middleware (Requirement: Architecture + AOP).
- */
 final class ConcurrencyAspect
 {
     public static function before(string $point): void
@@ -29,12 +25,6 @@ final class ConcurrencyAspect
         }
     }
 
-    /**
-     * @template T
-     *
-     * @param  Closure(): T  $callback
-     * @return T
-     */
     public static function around(string $point, Closure $callback): mixed
     {
         self::before($point);

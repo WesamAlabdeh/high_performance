@@ -1,6 +1,10 @@
 <?php
 
 use App\Exceptions\ApiException;
+use App\Http\Middleware\CapacityControlMiddleware;
+use App\Http\Middleware\CircuitBreakerMiddleware;
+use App\Http\Middleware\ConcurrencyTracingMiddleware;
+use App\Http\Middleware\ForceJsonResponse;
 use App\Utils\Logger;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
@@ -26,17 +30,17 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->api(append: [
-            \App\Http\Middleware\ForceJsonResponse::class,
-            \App\Http\Middleware\ConcurrencyTracingMiddleware::class,
+            ForceJsonResponse::class,
+            ConcurrencyTracingMiddleware::class,
         ]);
 
         $middleware->alias([
-            'capacity.control' => \App\Http\Middleware\CapacityControlMiddleware::class,
-            'circuit.breaker' => \App\Http\Middleware\CircuitBreakerMiddleware::class,
+            'capacity.control' => CapacityControlMiddleware::class,
+            'circuit.breaker' => CircuitBreakerMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        $exceptions->render(function (\Throwable $exception, Request $request) {
+        $exceptions->render(function (Throwable $exception, Request $request) {
             Logger::LogException($exception);
 
             $errorResponse = static fn (string $error, string $message, int $statusCode) => response()->json([

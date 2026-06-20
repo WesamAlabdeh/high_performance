@@ -6,9 +6,6 @@ use App\Exceptions\Errors;
 use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Support\Facades\Cache;
 
-/**
- * Requirement 5: Load distribution — circuit breaker pattern.
- */
 class CircuitBreakerService
 {
     private function cache(): Repository

@@ -8,9 +8,6 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * AOP entry point for HTTP layer — traces every API request.
- */
 class ConcurrencyTracingMiddleware
 {
     public function handle(Request $request, Closure $next): Response

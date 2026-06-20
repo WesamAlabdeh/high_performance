@@ -7,17 +7,8 @@ use App\Exceptions\Errors;
 use App\Models\Product;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Requirement 1: Concurrent access & data integrity.
- * Requirement 7: Pessimistic locking — see also OptimisticInventoryService.
- * Synchronization point: pessimistic row lock inside DB transaction.
- */
 class InventoryService
 {
-    /**
-     * @param  array<int, int>  $lines  product_id => quantity
-     * @return array<int, Product>
-     */
     public function reserveStock(array $lines): array
     {
         return ConcurrencyAspect::around('inventory.pessimistic_lock', fn () => DB::transaction(function () use ($lines) {

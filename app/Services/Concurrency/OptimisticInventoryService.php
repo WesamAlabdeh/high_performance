@@ -8,18 +8,10 @@ use App\Exceptions\Errors;
 use App\Models\Product;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Requirement 7: Optimistic locking — version column checked on UPDATE.
- * Alternative to pessimistic lockForUpdate() in InventoryService.
- */
 class OptimisticInventoryService
 {
     private const MAX_RETRIES = 5;
 
-    /**
-     * @param  array<int, int>  $lines  product_id => quantity
-     * @return array<int, Product>
-     */
     public function reserveStock(array $lines): array
     {
         return ConcurrencyAspect::around('inventory.optimistic_lock', function () use ($lines) {

@@ -14,9 +14,6 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Requirement 4: Batch processing — aggregates sales in chunks.
- */
 class ProcessDailySalesBatchJob implements ShouldQueue
 {
     use Batchable, ConfiguresQueueProfile, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;

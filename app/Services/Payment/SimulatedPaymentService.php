@@ -10,9 +10,6 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-/**
- * Requirement 8: ACID — balance check + simulated bank delay inside one transaction.
- */
 class SimulatedPaymentService
 {
     public function charge(User $user, Order $order): Payment

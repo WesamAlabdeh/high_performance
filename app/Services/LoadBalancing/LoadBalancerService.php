@@ -7,9 +7,6 @@ use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
-/**
- * Requirement 5: Load distribution — round-robin across configured instances with health checks.
- */
 class LoadBalancerService
 {
     private function cache(): Repository
@@ -33,9 +30,6 @@ class LoadBalancerService
         });
     }
 
-    /**
-     * @return list<string>
-     */
     public function healthyInstances(string $pool = 'api'): array
     {
         $configured = config('high_performance.load_balancer.instances', []);
@@ -50,9 +44,6 @@ class LoadBalancerService
         return $healthy;
     }
 
-    /**
-     * @return array{pool: string, instances: list<array{url: string, healthy: bool, latency_ms: float|null}>, selected: string|null}
-     */
     public function status(string $pool = 'api'): array
     {
         $configured = config('high_performance.load_balancer.instances', []);
@@ -98,9 +89,6 @@ class LoadBalancerService
         return $result['healthy'];
     }
 
-    /**
-     * @return array{healthy: bool, latency_ms: float|null}
-     */
     private function probe(string $baseUrl): array
     {
         $path = config('high_performance.load_balancer.health_path', '/up');
