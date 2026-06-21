@@ -1,0 +1,7 @@
+Command: php artisan concurrency:optimistic-demo
+Date: 2026-06-20
+
+Stock=10. Running 20 parallel OPTIMISTIC decrements..
+OPTIMISTIC final stock: 2 (expected 0)
+Stock reset. Running 20 parallel PESSIMISTIC decrements..
+PESSIMISTIC final stock: 0

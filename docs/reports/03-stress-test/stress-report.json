@@ -1,15 +1,71 @@
 {
     "users": 100,
-    "checkout_included": false,
-    "total_requests": 134,
-    "duration_seconds": 0.558,
-    "rps": 240.18,
-    "success": 134,
-    "failed": 0,
+    "operations_per_user": 10,
+    "total_requests": 1000,
+    "duration_seconds": 37.708,
+    "rps": 26.52,
+    "success": 558,
+    "failed": 442,
     "status_codes": {
-        "200": 134
+        "200": 524,
+        "400": 18,
+        "201": 34
     },
-    "latency_p50_ms": 304.74,
-    "latency_p95_ms": 524.71,
-    "latency_max_ms": 546
+    "by_operation": {
+        "auth_login": {
+            "success": 100,
+            "failed": 0
+        },
+        "product_list": {
+            "success": 53,
+            "failed": 47
+        },
+        "product_show": {
+            "success": 52,
+            "failed": 48
+        },
+        "wallet": {
+            "success": 50,
+            "failed": 50
+        },
+        "cart_show": {
+            "success": 56,
+            "failed": 44
+        },
+        "cart_update": {
+            "success": 52,
+            "failed": 48
+        },
+        "orders_list": {
+            "success": 52,
+            "failed": 48
+        },
+        "order_create": {
+            "success": 34,
+            "failed": 66
+        },
+        "lb_status": {
+            "success": 52,
+            "failed": 48
+        },
+        "batch_daily": {
+            "success": 57,
+            "failed": 43
+        }
+    },
+    "latency_p50_ms": 11168.86,
+    "latency_p95_ms": 27238.2,
+    "latency_max_ms": 29564.23,
+    "operations": {
+        "auth_login": "POST \/api\/auth\/login",
+        "product_list": "GET \/api\/product",
+        "product_show": "GET \/api\/product\/1",
+        "wallet": "GET \/api\/wallet",
+        "cart_show": "GET \/api\/cart",
+        "cart_update": "POST \/api\/cart",
+        "orders_list": "GET \/api\/order",
+        "order_create": "POST \/api\/order",
+        "lb_status": "GET \/api\/admin\/load-balancer\/status",
+        "batch_daily": "POST \/api\/admin\/batch\/daily-sales"
+    }
 }

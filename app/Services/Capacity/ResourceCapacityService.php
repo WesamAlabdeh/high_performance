@@ -3,6 +3,7 @@
 namespace App\Services\Capacity;
 
 use App\Exceptions\Errors;
+use App\Services\Concurrency\DistributedLockService;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Support\Facades\Cache;
@@ -10,19 +11,20 @@ use Illuminate\Support\Str;
 
 class ResourceCapacityService
 {
+    public function __construct(private readonly DistributedLockService $locks) {}
+
     private function cache(): Repository
     {
-        return Cache::store(config('high_performance.capacity.cache_store', 'database'));
+        return Cache::store(config('high_performance.capacity.cache_store', 'redis'));
     }
 
     public function acquire(string $key): string
     {
         $config = config('high_performance.capacity');
         $cacheKey = $config['checkout_key'].':'.$key;
-        $lock = $this->cache()->lock($cacheKey.':mutex', 10);
 
         try {
-            return $lock->block(5, function () use ($config, $cacheKey) {
+            return $this->locks->run("capacity:mutex:{$key}", function () use ($config, $cacheKey) {
                 $max = $config['max_concurrent_checkouts'];
                 $slots = $this->cache()->get($cacheKey.'_slots', []);
 
@@ -36,7 +38,7 @@ class ResourceCapacityService
                 $this->cache()->put($cacheKey, count($slots), $config['slot_ttl_seconds']);
 
                 return $token;
-            }) ?? throw new LockTimeoutException('Capacity lock timeout');
+            }, ttlSeconds: 10, waitSeconds: 5);
         } catch (LockTimeoutException) {
             Errors::CapacityExceeded('System is busy. Please retry shortly.', 'capacity lock timeout');
         }
@@ -46,14 +48,13 @@ class ResourceCapacityService
     {
         $config = config('high_performance.capacity');
         $cacheKey = $config['checkout_key'].':'.$key;
-        $lock = $this->cache()->lock($cacheKey.':mutex', 10);
 
-        $lock->block(5, function () use ($config, $cacheKey, $token) {
+        $this->locks->run("capacity:mutex:{$key}", function () use ($config, $cacheKey, $token) {
             $slots = $this->cache()->get($cacheKey.'_slots', []);
             unset($slots[$token]);
             $this->cache()->put($cacheKey.'_slots', $slots, $config['slot_ttl_seconds']);
             $this->cache()->put($cacheKey, count($slots), $config['slot_ttl_seconds']);
-        });
+        }, ttlSeconds: 10, waitSeconds: 5);
     }
 
     public function currentCount(string $key): int

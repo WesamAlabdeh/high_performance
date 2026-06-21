@@ -30,6 +30,10 @@ return [
         'product_store' => env('PRODUCT_CACHE_STORE', 'database'),
     ],
 
+    'distributed_lock' => [
+        'store' => env('DISTRIBUTED_LOCK_STORE', 'database'),
+    ],
+
     'stress_test' => [
         'users' => (int) env('STRESS_TEST_USERS', 100),
         'base_url' => env('STRESS_TEST_BASE_URL', 'http://127.0.0.1:8000'),

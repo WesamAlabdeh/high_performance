@@ -7,13 +7,31 @@ use App\Exceptions\Errors;
 use App\Http\Resources\User\Cart\CartResource;
 use App\Models\Cart;
 use App\Models\Product;
+use App\Services\Concurrency\DistributedLockService;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Lorisleiva\Actions\ActionRequest;
 
 class UpdateCartAction extends BaseAction
 {
+    public function __construct(private readonly DistributedLockService $locks) {}
+
     public function handle(array $data, int $userId): Cart
+    {
+        try {
+            return $this->locks->run(
+                "cart:update:{$userId}",
+                fn () => $this->updateCart($data, $userId),
+                ttlSeconds: 10,
+                waitSeconds: 5
+            );
+        } catch (LockTimeoutException) {
+            Errors::Conflict('Cart is being updated, please retry', 'cart distributed lock timeout');
+        }
+    }
+
+    private function updateCart(array $data, int $userId): Cart
     {
         return DB::transaction(function () use ($data, $userId) {
             $cart = Cart::where('user_id', $userId)->firstOrFail();

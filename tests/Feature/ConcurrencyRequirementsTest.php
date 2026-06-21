@@ -78,7 +78,7 @@ class ConcurrencyRequirementsTest extends TestCase
     public function test_capacity_middleware_limits_concurrent_checkouts(): void
     {
         config(['high_performance.capacity.max_concurrent_checkouts' => 1]);
-        Cache::store('database')->flush();
+        Cache::store('array')->flush();
 
         $user = User::factory()->create(['balance' => 10000]);
         Cart::create(['user_id' => $user->id, 'total_price' => 0]);
@@ -101,7 +101,7 @@ class ConcurrencyRequirementsTest extends TestCase
 
     public function test_circuit_breaker_opens_after_failures(): void
     {
-        Cache::store('database')->flush();
+        Cache::store('array')->flush();
         $breaker = app(CircuitBreakerService::class);
 
         for ($i = 0; $i < 5; $i++) {

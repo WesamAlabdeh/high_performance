@@ -34,5 +34,10 @@
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="PAYMENT_SIMULATION_DELAY_MS" value="0"/>
         <env name="PRODUCT_CACHE_STORE" value="array"/>
+        <env name="CAPACITY_CACHE_STORE" value="array"/>
+        <env name="CIRCUIT_CACHE_STORE" value="array"/>
+        <env name="LB_CACHE_STORE" value="array"/>
+        <env name="METRICS_CACHE_STORE" value="array"/>
+        <env name="DISTRIBUTED_LOCK_STORE" value="array"/>
     </php>
 </phpunit>

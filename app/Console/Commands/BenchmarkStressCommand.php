@@ -13,10 +13,9 @@ class BenchmarkStressCommand extends Command
         {--users=100 : Concurrent virtual users}
         {--url= : Base URL (defaults to STRESS_TEST_BASE_URL)}
         {--email=demo@highperformance.test}
-        {--password=password}
-        {--checkout : Include cart+order checkout for 1/5 of users}';
+        {--password=password}';
 
-    protected $description = 'Requirement 9/10: HTTP stress + benchmark report (100 users by default)';
+    protected $description = 'Requirement 9: 100 concurrent users on all API operations';
 
     public function handle(): int
     {
@@ -24,19 +23,64 @@ class BenchmarkStressCommand extends Command
         $baseUrl = rtrim($this->option('url') ?: config('high_performance.stress_test.base_url'), '/');
         $email = (string) $this->option('email');
         $password = (string) $this->option('password');
-        $includeCheckout = (bool) $this->option('checkout');
 
-        $this->info("Authenticating at {$baseUrl}...");
+        $operations = [
+            'auth_login' => 'POST /api/auth/login',
+            'product_list' => 'GET /api/product',
+            'product_show' => 'GET /api/product/1',
+            'wallet' => 'GET /api/wallet',
+            'cart_show' => 'GET /api/cart',
+            'cart_update' => 'POST /api/cart',
+            'orders_list' => 'GET /api/order',
+            'order_create' => 'POST /api/order',
+            'lb_status' => 'GET /api/admin/load-balancer/status',
+            'batch_daily' => 'POST /api/admin/batch/daily-sales',
+        ];
 
+        $stats = [
+            'users' => $users,
+            'operations_per_user' => count($operations),
+            'total_requests' => 0,
+            'duration_seconds' => 0,
+            'rps' => 0,
+            'success' => 0,
+            'failed' => 0,
+            'status_codes' => [],
+            'by_operation' => array_fill_keys(array_keys($operations), ['success' => 0, 'failed' => 0]),
+            'latency_p50_ms' => 0,
+            'latency_p95_ms' => 0,
+            'latency_max_ms' => 0,
+            'operations' => $operations,
+        ];
+
+        $latencies = [];
+        $started = microtime(true);
+
+        $this->info("Phase 1: {$users} concurrent logins...");
+        try {
+            $loginResponses = Http::pool(function ($pool) use ($users, $baseUrl, $email, $password) {
+                for ($i = 0; $i < $users; $i++) {
+                    $pool->as("auth_login_{$i}")
+                        ->acceptJson()
+                        ->timeout(30)
+                        ->post("{$baseUrl}/api/auth/login", compact('email', 'password'));
+                }
+            });
+            $this->collectResponses($loginResponses, $stats, $latencies);
+        } catch (ConnectionException) {
+            $this->error("Cannot connect to {$baseUrl}");
+            $this->line('Start the API first: composer octane');
+
+            return self::FAILURE;
+        }
+
+        $this->info('Phase 2: fresh token + authenticated operations...');
         try {
             $login = Http::acceptJson()
-                ->timeout(5)
-                ->connectTimeout(3)
+                ->timeout(10)
                 ->post("{$baseUrl}/api/auth/login", compact('email', 'password'));
-        } catch (ConnectionException $e) {
-            $this->error("Cannot connect to {$baseUrl}");
-            $this->line('Start the API first: composer octane  (or: php artisan serve)');
-            $this->line('Then run: php artisan benchmark:stress --users='.$users);
+        } catch (ConnectionException) {
+            $this->error('Login failed after phase 1');
 
             return self::FAILURE;
         }
@@ -48,82 +92,58 @@ class BenchmarkStressCommand extends Command
         }
 
         $token = $login->json('data.token');
-        $this->info('Token acquired. Running stress mix...');
 
-        $started = microtime(true);
-        $responses = Http::pool(function ($pool) use ($users, $baseUrl, $token, $includeCheckout) {
+        $authResponses = Http::pool(function ($pool) use ($users, $baseUrl, $token) {
             for ($i = 0; $i < $users; $i++) {
-                $pool->as("products_{$i}")
-                    ->withToken($token)
-                    ->acceptJson()
+                $pool->as("product_list_{$i}")
+                    ->withToken($token)->acceptJson()->timeout(30)
                     ->get("{$baseUrl}/api/product");
 
-                if ($i % 3 === 0) {
-                    $pool->as("wallet_{$i}")
-                        ->withToken($token)
-                        ->acceptJson()
-                        ->get("{$baseUrl}/api/wallet");
-                }
+                $pool->as("product_show_{$i}")
+                    ->withToken($token)->acceptJson()->timeout(30)
+                    ->get("{$baseUrl}/api/product/1");
 
-                if ($includeCheckout && $i % 5 === 0) {
-                    $pool->as("cart_{$i}")
-                        ->withToken($token)
-                        ->acceptJson()
-                        ->post("{$baseUrl}/api/cart", [
-                            'product_id' => 1,
-                            'quantity' => 1,
-                        ]);
+                $pool->as("wallet_{$i}")
+                    ->withToken($token)->acceptJson()->timeout(30)
+                    ->get("{$baseUrl}/api/wallet");
 
-                    $pool->as("order_{$i}")
-                        ->withToken($token)
-                        ->acceptJson()
-                        ->post("{$baseUrl}/api/order", [
-                            'user_notes' => 'stress-test',
-                        ]);
-                }
+                $pool->as("cart_show_{$i}")
+                    ->withToken($token)->acceptJson()->timeout(30)
+                    ->get("{$baseUrl}/api/cart");
+
+                $pool->as("cart_update_{$i}")
+                    ->withToken($token)->acceptJson()->timeout(30)
+                    ->post("{$baseUrl}/api/cart", ['product_id' => 1, 'quantity' => 1]);
+
+                $pool->as("orders_list_{$i}")
+                    ->withToken($token)->acceptJson()->timeout(30)
+                    ->get("{$baseUrl}/api/order");
+
+                $pool->as("order_create_{$i}")
+                    ->withToken($token)->acceptJson()->timeout(30)
+                    ->post("{$baseUrl}/api/order", ['user_notes' => "stress-{$i}"]);
+
+                $pool->as("lb_status_{$i}")
+                    ->withToken($token)->acceptJson()->timeout(30)
+                    ->get("{$baseUrl}/api/admin/load-balancer/status");
+
+                $pool->as("batch_daily_{$i}")
+                    ->withToken($token)->acceptJson()->timeout(30)
+                    ->post("{$baseUrl}/api/admin/batch/daily-sales");
             }
         });
+
+        $this->collectResponses($authResponses, $stats, $latencies);
+
         $duration = microtime(true) - $started;
+        $stats['duration_seconds'] = round($duration, 3);
+        $stats['rps'] = round($stats['total_requests'] / max($duration, 0.001), 2);
 
-        $stats = [
-            'users' => $users,
-            'checkout_included' => $includeCheckout,
-            'total_requests' => count($responses),
-            'duration_seconds' => round($duration, 3),
-            'rps' => round(count($responses) / max($duration, 0.001), 2),
-            'success' => 0,
-            'failed' => 0,
-            'status_codes' => [],
-            'latencies_ms' => [],
-        ];
-
-        foreach ($responses as $response) {
-            if ($response instanceof \Throwable) {
-                $stats['failed']++;
-
-                continue;
-            }
-
-            $code = $response->status();
-            $stats['status_codes'][$code] = ($stats['status_codes'][$code] ?? 0) + 1;
-
-            if ($response->successful()) {
-                $stats['success']++;
-            } else {
-                $stats['failed']++;
-            }
-
-            $stats['latencies_ms'][] = $response->transferStats?->getTransferTime()
-                ? round($response->transferStats->getTransferTime() * 1000, 2)
-                : 0;
-        }
-
-        sort($stats['latencies_ms']);
-        $count = count($stats['latencies_ms']) ?: 1;
-        $stats['latency_p50_ms'] = $stats['latencies_ms'][(int) floor($count * 0.5)] ?? 0;
-        $stats['latency_p95_ms'] = $stats['latencies_ms'][(int) floor($count * 0.95)] ?? 0;
-        $stats['latency_max_ms'] = $stats['latencies_ms'][$count - 1] ?? 0;
-        unset($stats['latencies_ms']);
+        sort($latencies);
+        $count = count($latencies) ?: 1;
+        $stats['latency_p50_ms'] = $latencies[(int) floor($count * 0.5)] ?? 0;
+        $stats['latency_p95_ms'] = $latencies[(int) floor($count * 0.95)] ?? 0;
+        $stats['latency_max_ms'] = $latencies[$count - 1] ?? 0;
 
         $filename = 'stress-'.now()->format('Y-m-d_His').'.json';
         $json = json_encode($stats, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
@@ -136,11 +156,57 @@ class BenchmarkStressCommand extends Command
         File::put($storagePath, $json);
         File::put($projectPath, $json);
 
-        $this->table(array_keys($stats), [array_map(fn ($v) => is_array($v) ? json_encode($v) : $v, $stats)]);
+        $this->table(
+            ['metric', 'value'],
+            collect($stats)->except(['by_operation', 'operations', 'status_codes'])->map(fn ($v, $k) => [$k, is_array($v) ? json_encode($v) : $v])->values()->all()
+        );
+
+        $this->newLine();
+        $this->info('By operation:');
+        foreach ($stats['by_operation'] as $op => $counts) {
+            $this->line("  {$operations[$op]} → success: {$counts['success']}, failed: {$counts['failed']}");
+        }
+
+        $this->newLine();
         $this->info("Report saved: {$storagePath}");
         $this->info("Project copy: {$projectPath}");
-        $this->line('Use Grafana dashboard while running this test for CPU/RAM charts (see docs/TESTING_GUIDE.html).');
 
         return self::SUCCESS;
+    }
+
+    private function collectResponses(array $responses, array &$stats, array &$latencies): void
+    {
+        foreach ($responses as $key => $response) {
+            $stats['total_requests']++;
+            $operation = preg_replace('/_\d+$/', '', (string) $key);
+
+            if ($response instanceof \Throwable) {
+                $stats['failed']++;
+                if (isset($stats['by_operation'][$operation])) {
+                    $stats['by_operation'][$operation]['failed']++;
+                }
+
+                continue;
+            }
+
+            $code = $response->status();
+            $stats['status_codes'][$code] = ($stats['status_codes'][$code] ?? 0) + 1;
+
+            if ($response->successful()) {
+                $stats['success']++;
+                if (isset($stats['by_operation'][$operation])) {
+                    $stats['by_operation'][$operation]['success']++;
+                }
+            } else {
+                $stats['failed']++;
+                if (isset($stats['by_operation'][$operation])) {
+                    $stats['by_operation'][$operation]['failed']++;
+                }
+            }
+
+            $latencies[] = $response->transferStats?->getTransferTime()
+                ? round($response->transferStats->getTransferTime() * 1000, 2)
+                : 0;
+        }
     }
 }
